@@ -14,15 +14,30 @@
       "help": "Password for Neo4j (or use ${NEO4J_PASSWORD})"
     },
     "embedding.apiKey": {
-      "label": "OpenAI API Key",
+      "label": "OpenAI API Key (for embeddings)",
       "sensitive": true,
       "placeholder": "sk-proj-...",
-      "help": "API key for OpenAI embeddings (or use ${OPENAI_API_KEY})"
+      "help": "API key for OpenAI embeddings (or use ${OPENAI_API_KEY}). Required even with Anthropic extraction."
     },
     "embedding.model": {
       "label": "Embedding Model",
       "placeholder": "text-embedding-3-small",
       "help": "OpenAI embedding model to use"
+    },
+    "extraction.provider": {
+      "label": "Extraction LLM Provider",
+      "placeholder": "anthropic",
+      "help": "LLM provider for fact extraction: anthropic (default) or openai"
+    },
+    "extraction.apiKey": {
+      "label": "Extraction API Key",
+      "sensitive": true,
+      "help": "API key for extraction LLM. Falls back to ANTHROPIC_API_KEY env var."
+    },
+    "extraction.model": {
+      "label": "Extraction Model",
+      "placeholder": "claude-sonnet-4-20250514",
+      "help": "Model for fact extraction (default: claude-sonnet-4-20250514 for anthropic, gpt-4o-mini for openai)"
     },
     "autoCapture": {
       "label": "Auto-Capture",
@@ -59,12 +74,20 @@
         },
         "required": ["apiKey"]
       },
+      "extraction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["anthropic", "openai"]
+          },
+          "apiKey": { "type": "string" },
+          "model": { "type": "string" }
+        }
+      },
       "autoCapture": { "type": "boolean" },
-      "autoRecall": { "type": "boolean" },
-      "extractionModel": {
-        "type": "string",
-        "description": "LLM model for fact extraction (default: gpt-4o-mini)"
-      }
+      "autoRecall": { "type": "boolean" }
     },
     "required": ["neo4j", "embedding"]
   }

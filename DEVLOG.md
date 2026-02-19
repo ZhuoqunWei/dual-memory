@@ -180,3 +180,54 @@ Added full constraint/index specification to design doc and updated `init-schema
 Replaced all personal names, workspace paths, and identifying details with generic examples before committing to version control.
 
 ---
+
+## 2026-02-19 — Phase 1: Writer MVP
+
+### Architecture
+OpenClaw plugin with 3 lifecycle integration points:
+- `before_agent_start` → retrieval (inject relevant memories into agent context)
+- `agent_end` → writer (LLM fact extraction → Neo4j writes)
+- 3 agent tools: `memory_graph_search`, `memory_graph_store`, `memory_graph_forget`
+
+### Files built
+```
+extensions/dual-memory/
+├── index.ts              # Plugin entry: hooks, tools, CLI, service lifecycle
+├── neo4j-client.ts       # Neo4j driver wrapper: schema init, CRUD, retrieval
+├── writer.ts             # LLM fact extraction (Anthropic + OpenAI support)
+├── retrieval.ts          # Two-phase retrieval + context formatting
+├── embeddings.ts         # OpenAI embeddings wrapper
+├── config.ts             # Config parsing with env var resolution
+├── openclaw.plugin.json  # Plugin manifest
+├── package.json          # Dependencies: neo4j-driver, openai, @anthropic-ai/sdk
+├── test-neo4j.ts         # Integration test (Neo4j only, mock embeddings)
+└── test-integration.ts   # Full integration test (requires API keys)
+```
+
+### Key decisions
+
+**Dual LLM provider support.** User uses Claude (Anthropic) for conversations. Writer extraction now supports both Anthropic and OpenAI as extraction providers. Embeddings still use OpenAI's text-embedding-3-small since Anthropic has no embeddings API.
+
+**Application-layer filtering for ANN queries.** Neo4j 2026.01.4 has syntax limitations on `WHERE` clauses after `CALL ... YIELD`. Moved status/canonical/expiry filtering to application layer with 3x over-fetch to compensate. Entity fetching is a separate query.
+
+**No CANONICAL check in ANN.** The ANN vector search path doesn't filter CANONICAL relationships in Cypher (would require pattern existence check that Neo4j rejects after YIELD). Filtering happens application-side. For category-scoped queries (Phase 2), the `NOT EXISTS` syntax works.
+
+### Integration test results
+All passing against live Neo4j 2026.01.4:
+- ✅ Schema initialization (17 indexes + constraints)
+- ✅ Session creation
+- ✅ Fact writing with entities and MENTIONS relationships
+- ✅ ANN vector retrieval with floor-clamped scoring
+- ✅ Entity attachment to retrieval results
+- ✅ Memory suppression (soft delete) correctly excludes from retrieval
+- ✅ Single memory store (explicit tool path)
+- ✅ TypeScript type-checking clean (zero errors)
+
+### What's NOT done yet
+- No `before_compaction` emergency hook (Phase 3)
+- No category-scoped retrieval (no categories exist until Editor creates them)
+- No entity embedding generation (entities stored without embeddings for now)
+- No RELATES_TO creation between facts (Writer extracts them but doesn't write them yet — needs content-matching logic)
+- Not yet installed as an actual OpenClaw plugin (need API keys configured)
+
+---
