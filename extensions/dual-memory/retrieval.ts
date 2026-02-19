@@ -101,11 +101,31 @@ export class Retrieval {
       return `${i + 1}. [${kind}]${entities} ${r.content} (${score}%)`;
     });
 
-    return [
+    // Collect unique entity relations across all results
+    const allRelations = new Set<string>();
+    for (const r of results) {
+      if (r.entityRelations) {
+        for (const rel of r.entityRelations) {
+          allRelations.add(rel);
+        }
+      }
+    }
+
+    const sections = [
       "<graph-memories>",
       "Relevant memories from your knowledge graph:",
       ...lines,
-      "</graph-memories>",
-    ].join("\n");
+    ];
+
+    if (allRelations.size > 0) {
+      sections.push("");
+      sections.push("Entity relationships:");
+      for (const rel of allRelations) {
+        sections.push(`- ${rel}`);
+      }
+    }
+
+    sections.push("</graph-memories>");
+    return sections.join("\n");
   }
 }

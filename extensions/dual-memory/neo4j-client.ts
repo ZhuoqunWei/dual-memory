@@ -82,6 +82,15 @@ export type ExtractedFact = {
   }[];
 };
 
+export type EntityLink = {
+  source: string;  // entity name
+  target: string;  // entity name
+  relation: string;
+  detail: string;
+  sentiment: "positive" | "negative" | "neutral" | "mixed";
+  strength: number;
+};
+
 export type RetrievalResult = {
   id: string;
   content: string;
@@ -89,6 +98,7 @@ export type RetrievalResult = {
   normalizedKind?: string;
   score: number;
   entities?: string[];
+  entityRelations?: string[];  // e.g., ["三哥 is friend of ZWei", "Maggie is teacher of Zku"]
 };
 
 // ============================================================================
@@ -303,6 +313,39 @@ export class Neo4jClient {
     return memoryIds;
   }
 
+  /**
+   * Write entity-to-entity LINKED_TO relationships extracted by the Writer.
+   */
+  async writeEntityLinks(links: EntityLink[]): Promise<void> {
+    if (links.length === 0) return;
+    await this.ensureSchema();
+    const session = this.driver.session();
+
+    try {
+      for (const link of links) {
+        await session.executeWrite((tx: ManagedTransaction) =>
+          tx.run(
+            `MATCH (a:Entity {name: $source}), (b:Entity {name: $target})
+             MERGE (a)-[r:LINKED_TO]->(b)
+             SET r.relation = $relation, r.detail = $detail,
+                 r.sentiment = $sentiment, r.strength = $strength,
+                 r.active = true`,
+            {
+              source: link.source,
+              target: link.target,
+              relation: link.relation,
+              detail: link.detail,
+              sentiment: link.sentiment,
+              strength: link.strength,
+            },
+          ),
+        );
+      }
+    } finally {
+      await session.close();
+    }
+  }
+
   // ========================================================================
   // Retrieval operations
   // ========================================================================
@@ -396,7 +439,7 @@ export class Neo4jClient {
         .sort((a, b) => b.score - a.score)
         .slice(0, limit);
 
-      // Now fetch entities for the top results (separate query to keep it clean)
+      // Now fetch entities + LINKED_TO relations for the top results
       if (scored.length > 0) {
         const ids = scored.map((s) => s.id);
         const entResult = await session.executeRead((tx: ManagedTransaction) =>
@@ -404,30 +447,42 @@ export class Neo4jClient {
             `UNWIND $ids AS memId
              MATCH (m:Memory {id: memId})
              OPTIONAL MATCH (m)-[:MENTIONS]->(e:Entity)
-             RETURN m.id AS id, collect(DISTINCT e.name) AS entities`,
+             WITH m, collect(DISTINCT e) AS ents
+             UNWIND ents AS e
+             OPTIONAL MATCH (e)-[r:LINKED_TO]->(other:Entity)
+             WITH m, e, collect(DISTINCT {name: other.name, relation: r.relation}) AS links
+             RETURN m.id AS id,
+                    collect(DISTINCT e.name) AS entities,
+                    collect(DISTINCT {from: e.name, links: links}) AS entityLinks`,
             { ids },
           ),
         );
         const entityMap = new Map<string, string[]>();
+        const relMap = new Map<string, string[]>();
         for (const r of entResult.records) {
           entityMap.set(r.get("id"), r.get("entities"));
+          // Flatten entity links into readable strings
+          const entityLinks = r.get("entityLinks") as Array<{from: string; links: Array<{name: string; relation: string}>}>;
+          const relStrings: string[] = [];
+          for (const el of entityLinks) {
+            for (const link of el.links) {
+              if (link.name && link.relation) {
+                relStrings.push(`${el.from} is ${link.relation} of ${link.name}`);
+              }
+            }
+          }
+          if (relStrings.length > 0) {
+            relMap.set(r.get("id"), [...new Set(relStrings)]);
+          }
         }
         return scored.map((s) => ({
           ...s,
           entities: entityMap.get(s.id) ?? [],
+          entityRelations: relMap.get(s.id),
         }));
       }
 
       return scored;
-
-      return result.records.map((r) => ({
-        id: r.get("id"),
-        content: r.get("content"),
-        kind: r.get("kind"),
-        normalizedKind: r.get("normalizedKind"),
-        score: r.get("score"),
-        entities: r.get("entities"),
-      }));
     } finally {
       await session.close();
     }

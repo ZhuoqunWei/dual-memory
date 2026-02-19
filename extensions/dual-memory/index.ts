@@ -89,7 +89,7 @@ const dualMemoryPlugin = {
           const channel = ctx.messageProvider ?? "cli";
 
           // Extract facts via LLM
-          const { facts, sessionSummary } = await writer.extractFacts(
+          const { facts, entityLinks, sessionSummary } = await writer.extractFacts(
             event.messages,
             channel,
           );
@@ -119,8 +119,13 @@ const dualMemoryPlugin = {
             factEmbeddings,
           );
 
+          // Write entity links (LINKED_TO)
+          if (entityLinks.length > 0) {
+            await db.writeEntityLinks(entityLinks);
+          }
+
           api.logger.info(
-            `dual-memory: captured ${memoryIds.length} memories from ${event.messages.length} messages`,
+            `dual-memory: extracted ${facts.length} facts, persisted ${memoryIds.length} memories, ${entityLinks.length} entity links from ${event.messages.length} messages`,
           );
         } catch (err) {
           api.logger.warn(`dual-memory: capture failed: ${String(err)}`);

@@ -1,0 +1,22 @@
+[project]
+name = "dual-memory-editor"
+version = "0.2.0"
+description = "Editor agent for dual-agent memory system — consolidates raw memories in Neo4j"
+requires-python = ">=3.11"
+dependencies = [
+    "neo4j>=5.27.0",
+    "anthropic>=0.40.0",
+    "voyageai>=0.3.0",
+    "numpy>=1.26.0",
+    "schedule>=1.2.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8.0",
+]
+
+[project.scripts]
+editor = "editor.main:main"
