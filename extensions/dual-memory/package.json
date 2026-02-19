@@ -1,0 +1,22 @@
+{
+  "name": "@openclaw/dual-memory",
+  "version": "0.1.0",
+  "description": "Dual-agent self-organizing memory with Neo4j knowledge graph",
+  "type": "module",
+  "devDependencies": {
+    "openclaw": "workspace:*"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.2.0"
+  },
+  "dependencies": {
+    "neo4j-driver": "^5.27.0",
+    "openai": "^4.80.0",
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

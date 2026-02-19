@@ -1,0 +1,71 @@
+{
+  "id": "dual-memory",
+  "kind": "memory",
+  "uiHints": {
+    "neo4j.uri": {
+      "label": "Neo4j URI",
+      "placeholder": "bolt://localhost:7687",
+      "help": "Bolt protocol URI for Neo4j instance"
+    },
+    "neo4j.password": {
+      "label": "Neo4j Password",
+      "sensitive": true,
+      "placeholder": "dualmemory2026",
+      "help": "Password for Neo4j (or use ${NEO4J_PASSWORD})"
+    },
+    "embedding.apiKey": {
+      "label": "OpenAI API Key",
+      "sensitive": true,
+      "placeholder": "sk-proj-...",
+      "help": "API key for OpenAI embeddings (or use ${OPENAI_API_KEY})"
+    },
+    "embedding.model": {
+      "label": "Embedding Model",
+      "placeholder": "text-embedding-3-small",
+      "help": "OpenAI embedding model to use"
+    },
+    "autoCapture": {
+      "label": "Auto-Capture",
+      "help": "Automatically extract facts from conversations"
+    },
+    "autoRecall": {
+      "label": "Auto-Recall",
+      "help": "Automatically inject relevant memories into context"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "neo4j": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "uri": { "type": "string" },
+          "user": { "type": "string" },
+          "password": { "type": "string" }
+        },
+        "required": ["password"]
+      },
+      "embedding": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "apiKey": { "type": "string" },
+          "model": {
+            "type": "string",
+            "enum": ["text-embedding-3-small", "text-embedding-3-large"]
+          }
+        },
+        "required": ["apiKey"]
+      },
+      "autoCapture": { "type": "boolean" },
+      "autoRecall": { "type": "boolean" },
+      "extractionModel": {
+        "type": "string",
+        "description": "LLM model for fact extraction (default: gpt-4o-mini)"
+      }
+    },
+    "required": ["neo4j", "embedding"]
+  }
+}

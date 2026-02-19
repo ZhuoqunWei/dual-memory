@@ -47,53 +47,241 @@ The Writer is weak in the sense that it only ever sees one session at a time. Th
 
 The memory lives in Neo4j as a property graph. This matters — a graph is the right data structure here because memory is fundamentally relational. Facts connect to entities, entities connect to each other, categories contain memories, and those connections are as important as the content itself.
 
+### Design Principles
+
+1. **Few node types, rich relationships.** Nodes are nouns. Relationships carry the intelligence.
+2. **Open enums with normalization.** `Memory.kind` and `Entity.type` are open strings from the Writer. `normalizedKind` / `normalizedType` are Editor-controlled stable values for reliable queries. Writer generates freely; Editor converges to a canonical set.
+3. **Every relationship has weight.** Importance is always queryable and rankable.
+4. **Aliases on Entity.** Multilingual by default. "老王" and "Wang Wei" are the same person.
+5. **No domain-specific node types.** A "Decision" is `Memory {kind: "decision"}`, not a Decision node. This keeps the schema universal.
+6. **Provenance on everything.** Every Memory traces back to a specific message. Every category assignment traces to who assigned it.
+
 ### Node Types
 
-**Memory** — a single extracted fact from a session.
+**Memory** — a single extracted fact, decision, observation, or emotional state.
 ```
 (Memory {
-  id,
-  content,          // "User prefers dark mode in all editors"
-  timestamp,
-  confidence,       // 0.0 - 1.0, starts at 0.5, Editor adjusts over time
-  status,           // raw | reviewed | archived
-  embedding         // vector for semantic search
+  id:                   String      // UUID
+  content:              String      // "Alice decided to switch majors, motivated by career and personal growth"
+
+  // --- Classification (dual-track) ---
+  kind:                 String      // Writer's raw classification: fact | decision | preference | goal | emotion | observation | event
+                                    // Open enum — Writer can produce new kinds
+  normalizedKind:       String?     // Editor's stable classification (null = not yet reviewed)
+                                    // Converges to canonical set: fact | decision | preference | goal | emotion | observation | event
+
+  // --- Temporal (dual timestamps) ---
+  timestamp:            DateTime    // When extracted (system time)
+  eventTimeStart:       DateTime?   // When the event happened (null = unknown/not specified)
+                                    // If known to equal extraction time, set explicitly to timestamp value
+  eventTimeEnd:         DateTime?   // End of event time range (null = point-in-time or unknown)
+  expiresAt:            DateTime?   // Expiry for time-sensitive memories (null = never expires)
+
+  // --- Scoring ---
+  confidence:           Float       // 0.0-1.0, certainty that this fact is true. Starts at 0.5.
+  salience:             Float       // 0.0-1.0, importance/relevance. Starts at 0.5.
+                                    // confidence × salience are orthogonal: "Alice ate a sandwich" = high confidence, low salience
+                                    // "Alice might be considering switching careers" = low confidence, high salience
+
+  // --- Lifecycle ---
+  status:               String      // raw | reviewed | archived | suppressed
+                                    // suppressed = excluded from retrieval but retained for audit (privacy, errors, user request)
+  lastAccessed:         DateTime?   // Last retrieval time (null = never retrieved)
+
+  // --- Provenance ---
+  sourceRef:            String?     // Stable pointer: "discord:channelId:messageId" or "cli:sessionId:turnN"
+  sourceQuote:          String?     // Original text snippet (capped length) for auditability
+  sourceChannel:        String?     // Channel where this was captured: discord | telegram | cli
+  sourceAuthor:         String?     // Who said it: hashed user ID or speaker identifier
+                                    // Disambiguates multi-speaker channels. Hash for privacy.
+
+  // --- Search ---
+  embedding:            Vector      // 1536d, text-embedding-3-small
 })
 ```
 
 **Entity** — a named thing that memories refer to.
 ```
 (Entity {
-  name,             // "VS Code", "Alice", "Project Phoenix"
-  type              // Person | Tool | Project | Concept | Preference
+  id:                   String      // UUID
+  name:                 String      // Primary display name: "老王"
+  type:                 String      // Writer's raw type
+  normalizedType:       String?     // Editor's stable type (null = not yet reviewed)
+                                    // Canonical set: Person | Place | Project | Organization | Tool | Concept
+  aliases:              String[]    // ["Wang Wei", "老王", "wangwei"] — multilingual
+  key:                  String?     // Stable external identifier for disambiguation
+                                    // e.g. "person:phone_hash", "org:domain", "project:repo_url"
+                                    // null = no external key available
+  firstSeen:            DateTime    // First appearance in the graph
+  embedding:            Vector      // For entity disambiguation
 })
 ```
 
 **Session** — a record of one conversation.
 ```
-(Session { id, date, summary })
+(Session {
+  id:                   String
+  date:                 DateTime
+  summary:              String
+  messageCount:         Int
+  channel:              String      // discord | telegram | cli | whatsapp
+})
 ```
 
 **Category** — the directory layer. Maintained exclusively by the Editor.
 ```
 (Category {
-  name,             // "Work Projects", "Technical Preferences", "People"
-  description
+  name:                 String      // "Learning", "People", "Career Decisions"
+  description:          String
+})
+```
+
+**EditAction** — audit trail for Editor operations. Lives in the graph so the Editor can query its own history.
+```
+(EditAction {
+  id:                   String
+  type:                 String      // merge | reclassify | archive | split | reweight | suppress
+  targets:              String[]    // Node IDs affected
+  reason:               String      // LLM-generated explanation
+  timestamp:            DateTime
 })
 ```
 
 ### Relationships
 
 ```
-(Memory)-[:MENTIONS]->(Entity)
+// === Memory ↔ Entity ===
+(Memory)-[:MENTIONS {role}]->(Entity)
+  // role: "subject" | "object" | "context" | "source"
+  // 4 roles max. Writer can reliably classify these.
+  // "Alice switched to CS":        Alice=subject, CS=object
+  // "老王 said the approach is bad": 老王=source, approach=object
+
+// === Memory ↔ Memory ===
+(Memory)-[:RELATES_TO {type, weight}]->(Memory)
+  // Fact-layer types (participate in reasoning/retrieval):
+  //   "caused_by" | "follows" | "contradicts" | "supports" | "elaborates"
+  // Editor-layer types (version/aggregation, excluded from reasoning by default):
+  //   "editor:summarizes" | "editor:supersedes"
+  //
+  // weight: 0.0-1.0, strength of connection
+  // Open enum — extensible without schema migration.
+  // Naming convention: fact-layer = bare name, editor-layer = "editor:" prefix.
+
+// === Memory ↔ Session ===
 (Memory)-[:PART_OF]->(Session)
-(Memory)-[:RELATED_TO {weight}]->(Memory)
-(Entity)-[:LINKED_TO]->(Entity)
-(Category)-[:CONTAINS]->(Memory)
+
+// === Memory ↔ Category ===
+(Memory)-[:IN_CATEGORY {score, assignedBy, timestamp}]->(Category)
+  // score:      0.0-1.0, how strongly this memory belongs to this category
+  // assignedBy: "writer" | "editor"
+  // timestamp:  when assigned
+  // A Memory can belong to multiple Categories.
+
+// === Entity ↔ Entity ===
+(Entity)-[:LINKED_TO {relation, detail, sentiment, strength, since, until, active}]->(Entity)
+  // relation:   "friend" | "colleague" | "uses" | "part_of" — open enum
+  // detail:     "calls him 老王" — human-readable context
+  // sentiment:  "positive" | "negative" | "neutral" | "mixed"
+  // strength:   0.0-1.0
+  // since:      DateTime?
+  // until:      DateTime?   // When relationship ended (null = ongoing OR unknown)
+  // active:     Boolean     // Editor-only field. true = current, false = ended.
+  //                         // Rule: Writer never writes active. Editor maintains it.
+  //                         // active=false + until=null is valid (ended but time unknown).
+
+// === Memory canonical pointer ===
+(Memory)-[:CANONICAL]->(Memory)
+  // Superseded memory points to its canonical replacement.
+  // At most 1 outgoing CANONICAL per memory. Editor-maintained.
+  // editor:supersedes (RELATES_TO) is the audit trail / version chain.
+  // CANONICAL is the index for O(1) lookup.
+
+// === Entity ↔ Entity (merge semantics) ===
+(Entity)-[:MERGED_INTO]->(Entity)
+  // Non-canonical entity points to canonical. Queries follow MERGED_INTO to resolve.
+
+// === Category ↔ Category ===
 (Category)-[:SUBCATEGORY_OF]->(Category)
 ```
 
-The `Category` layer is the key architectural decision. Most memory systems do blind vector search over everything — expensive, and the results get noisier as the graph grows. With a directory layer, retrieval becomes two-phase: find the right category first, then do vector search only within that subgraph. The Editor maintains this directory. It's the map of the memory.
+### Retrieval Scoring Formula
+
+```
+score = similarity * (0.6 + 0.4 * confidence) * (0.6 + 0.4 * salience)
+```
+
+Uses floor-clamped weighting instead of pure multiplication. A brand-new memory (confidence=0.5, salience=0.5) gets scored at `sim * 0.8 * 0.8 = sim * 0.64` — not `sim * 0.25` which pure multiplication would give. This prevents new-but-important memories from being buried.
+
+### RELATES_TO Type Convention
+
+| Layer | Types | Used in retrieval? | Who writes? |
+|-------|-------|--------------------|-------------|
+| Fact | caused_by, follows, contradicts, supports, elaborates | Yes | Writer + Editor |
+| Editor | editor:summarizes, editor:supersedes | No (unless explicitly requested) | Editor only |
+
+Queries that traverse reasoning chains filter to fact-layer types by default:
+```cypher
+MATCH (a)-[:RELATES_TO]->(b) WHERE NOT r.type STARTS WITH 'editor:'
+```
+
+### Canonical Resolution Patterns
+
+**Memory:** `CANONICAL` relationship. If a memory has an outgoing CANONICAL edge, it's been superseded. Retrieval skips non-canonical memories:
+```cypher
+WHERE NOT (m)-[:CANONICAL]->() AND m.status NOT IN ['archived', 'suppressed']
+```
+
+Resolve canonical from a superseded memory:
+```cypher
+MATCH (m:Memory)-[:CANONICAL]->(canonical:Memory)
+```
+
+**Entity:** `MERGED_INTO` relationship. Resolve by following the chain:
+```cypher
+MATCH (e:Entity)-[:MERGED_INTO*0..]->(canonical:Entity)
+WHERE NOT (canonical)-[:MERGED_INTO]->()
+```
+
+### Validation Rules (Writer vs Editor boundary)
+
+These rules are mechanically enforced at the application layer:
+
+**Writer constraints:**
+- MUST set `status: 'raw'` on all Memory nodes
+- MUST set `confidence: 0.5`, `salience: 0.5` as defaults
+- MUST NOT create RELATES_TO with `type` starting with `editor:`
+- MUST NOT write `CANONICAL` relationships
+- MUST NOT write `LINKED_TO.active` — field defaults to `true` implicitly
+- MUST NOT write `normalizedKind` or `normalizedType`
+- MUST NOT modify or delete existing nodes
+- SHOULD create at least one `MENTIONS {role: 'subject'}` per Memory (unless genuinely no subject exists, e.g. weather observations)
+
+**Editor constraints:**
+- MUST log every mutation as an `EditAction` node
+- MUST NOT modify `sourceRef`, `sourceQuote`, `sourceAuthor`, `sourceChannel` (provenance is immutable)
+- MUST maintain `LINKED_TO.active` consistency: `active=true` + `until != null` is invalid
+- MUST set `normalizedKind` / `normalizedType` only from canonical sets
+- OWNS: `CANONICAL`, `MERGED_INTO`, `editor:*` RELATES_TO types, `IN_CATEGORY`, `SUBCATEGORY_OF`
+
+**Shared rules:**
+- All node IDs are UUIDs, generated at creation time
+- `RELATES_TO.weight` is required (no weightless edges)
+- `MENTIONS.role` is one of: `subject | object | context | source`
+- No hard deletes — only `status: 'archived'` or `status: 'suppressed'`
+
+### What's Deliberately NOT in the Schema
+
+- **No Emotion/Decision/Event node types.** All are `Memory` with different `kind` values. One node type = simpler Writer, simpler queries, no ambiguity about which type to create.
+- **No Timeline node.** Timelines emerge from `RELATES_TO {type: "follows"}` chains + eventTimeStart ordering.
+- **No contradictionCount field.** Derived from `RELATES_TO {type: "contradicts"}` edges. Ground truth lives in edges, not counters.
+- **No sourceSession field.** Redundant with `PART_OF` relationship. One source of truth, not two.
+- **No canonicalId field.** Canonical pointer is the `CANONICAL` relationship, not a string field. Avoids drift between field and edge. `editor:supersedes` is the version chain; `CANONICAL` is the index.
+- **No multi-tenant fields.** Scope by `Session.channel` or add `namespace` later. Don't over-engineer for single-user MVP.
+
+### The Category Layer
+
+The `Category` layer is the key architectural decision. Most memory systems do blind vector search over everything — expensive, and the results get noisier as the graph grows. With a directory layer, retrieval becomes two-phase: find the right category first, then do vector search only within that subgraph. The Editor maintains this directory. It's the map of the memory. Category assignments are relationships with metadata (`IN_CATEGORY` with score and provenance), not simple containment edges — making them traceable, rankable, and allowing multi-category membership.
 
 ---
 
@@ -320,38 +508,89 @@ OPTIONS { indexConfig: {
 }}
 ```
 
-Two-phase retrieval uses **pre-filtering** (Approach A):
+Two-phase retrieval uses **pre-filtering** (Approach A) with the floor-clamped scoring formula:
 
 ```cypher
-MATCH (cat:Category)-[:CONTAINS]->(mem:Memory)
-WHERE cat.name IN $categoryNames AND mem.status <> 'archived'
-WITH mem, vector.similarity.cosine(mem.embedding, $queryVector) AS similarity
-WITH mem, similarity * mem.confidence AS hybridScore
-ORDER BY hybridScore DESC LIMIT 10
-RETURN mem.content, mem.id, hybridScore
+MATCH (mem:Memory)-[:IN_CATEGORY {score: catScore}]->(cat:Category)
+WHERE cat.name IN $categoryNames
+  AND mem.status NOT IN ['archived', 'suppressed']
+  AND NOT (mem)-[:CANONICAL]->()
+  AND (mem.expiresAt IS NULL OR mem.expiresAt > datetime())
+WITH mem, vector.similarity.cosine(mem.embedding, $queryVector) AS sim,
+     catScore
+WITH mem, sim * (0.6 + 0.4 * mem.confidence) * (0.6 + 0.4 * mem.salience) AS score
+ORDER BY score DESC LIMIT 10
+RETURN mem.content, mem.id, mem.kind, mem.normalizedKind, score
 ```
 
 Fallback (low category-classification confidence): full ANN search via `db.index.vector.queryNodes`.
 
-### Additional Schema Properties (from design refinement)
+### Constraints & Indexes
 
-```
-(Memory {
-  ...existing properties...
-  source_session,       // Which session(s) contributed to this memory
-  last_accessed,        // When this memory was last retrieved
-  contradiction_count   // How many times new data contradicted this fact
-})
+Required before inserting any data:
 
-(EditAction {
-  id,
-  type,                 // merge | reclassify | archive | split
-  targets,              // Node IDs affected
-  reason,               // LLM-generated explanation
-  timestamp,
-  reversible            // Whether this action can be undone
-})
+```cypher
+// === Uniqueness constraints (also create indexes) ===
+CREATE CONSTRAINT memory_id IF NOT EXISTS FOR (m:Memory) REQUIRE m.id IS UNIQUE;
+CREATE CONSTRAINT entity_id IF NOT EXISTS FOR (e:Entity) REQUIRE e.id IS UNIQUE;
+CREATE CONSTRAINT session_id IF NOT EXISTS FOR (s:Session) REQUIRE s.id IS UNIQUE;
+CREATE CONSTRAINT editaction_id IF NOT EXISTS FOR (a:EditAction) REQUIRE a.id IS UNIQUE;
+CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE;
+
+// === Performance indexes ===
+CREATE INDEX memory_status IF NOT EXISTS FOR (m:Memory) ON (m.status);
+CREATE INDEX memory_timestamp IF NOT EXISTS FOR (m:Memory) ON (m.timestamp);
+CREATE INDEX memory_eventTimeStart IF NOT EXISTS FOR (m:Memory) ON (m.eventTimeStart);
+CREATE INDEX memory_expiresAt IF NOT EXISTS FOR (m:Memory) ON (m.expiresAt);
+CREATE INDEX memory_normalizedKind IF NOT EXISTS FOR (m:Memory) ON (m.normalizedKind);
+CREATE INDEX entity_name IF NOT EXISTS FOR (e:Entity) ON (e.name);
+CREATE INDEX entity_normalizedType IF NOT EXISTS FOR (e:Entity) ON (e.normalizedType);
+
+// === Fulltext index for entity resolution ===
+CREATE FULLTEXT INDEX entity_names IF NOT EXISTS
+FOR (e:Entity) ON EACH [e.name]
+// Note: aliases is a String[] — fulltext over arrays requires
+// application-layer search or a separate AliasNode in the future.
+
+// === Vector indexes ===
+CREATE VECTOR INDEX memoryEmbeddings IF NOT EXISTS
+FOR (m:Memory) ON (m.embedding)
+OPTIONS { indexConfig: {
+  `vector.dimensions`: 1536,
+  `vector.similarity_function`: 'cosine'
+}};
+
+CREATE VECTOR INDEX entityEmbeddings IF NOT EXISTS
+FOR (e:Entity) ON (e.embedding)
+OPTIONS { indexConfig: {
+  `vector.dimensions`: 1536,
+  `vector.similarity_function`: 'cosine'
+}};
 ```
+
+### Schema Design Notes
+
+The schema went through three iterations (v0 → v1 → v2) driven by use-case validation and peer review. Key changes from v1 to v2:
+
+| Change | v1 | v2 | Why |
+|--------|----|----|-----|
+| Temporal | Single `timestamp` | `timestamp` + `eventTimeStart/End` + `expiresAt` | "switched majors last year" ≠ today. "in NYC this week" must expire. |
+| Classification | Open enum only | `kind` (Writer) + `normalizedKind` (Editor) | Writer generates freely, Editor converges to stable set for reliable queries |
+| Scoring | `similarity × confidence` | `sim × (0.6 + 0.4*conf) × (0.6 + 0.4*sal)` | Pure multiplication buries new memories. Floor clamp prevents this. |
+| Category | `Category-[:CONTAINS]->Memory` | `Memory-[:IN_CATEGORY {score, assignedBy}]->Category` | Assignment is traceable, rankable, multi-category |
+| Provenance | `sourceSession` field | `PART_OF` relationship + `sourceRef` + `sourceQuote` | No redundancy, stable pointer to exact message |
+| Versioning | None | `CANONICAL` rel + `editor:supersedes` + `MERGED_INTO` | Explicit merge/version semantics in the graph, no string↔edge drift |
+| Status | raw/reviewed/archived | + `suppressed` | Privacy, errors, user deletion requests |
+| Entity relationships | `since` only | + `until` + `active` (Editor-only) | Relationships can end |
+| RELATES_TO types | All flat | `editor:` prefix convention for edit-layer types | Separates reasoning from versioning in queries |
+
+Validated against query scenarios:
+
+- **"我做过哪些重要决定"** → `normalizedKind = 'decision'` + `RELATES_TO {type: 'caused_by'}` for reasons
+- **"我和老王聊过什么技术话题"** → `Entity.aliases` for multilingual + `MENTIONS.role` for precise joins
+- **"我最近情绪怎么样"** → `normalizedKind = 'emotion'` + `eventTimeStart` temporal aggregation
+- **"这个决定和两个月前那个想法有什么联系"** → fact-layer `RELATES_TO` chain traversal across sessions
+- **"我上个月的学习进度"** → `eventTimeStart` range + `Entity.type = 'Project'/'Concept'`
 
 ---
 
@@ -397,7 +636,7 @@ Fallback (low category-classification confidence): full ANN search via `db.index
 - Confidence decay for stale facts
 - `before_compaction` hook for emergency saves
 - Benchmarks vs baseline (memory-core, memory-lancedb)
-- Migration tool from existing MEMORY.md / daily logs
+- Migration tool from existing memory files / daily logs
 - Documentation
 
 ---

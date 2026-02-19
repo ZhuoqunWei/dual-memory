@@ -58,11 +58,125 @@ Reason: each category will have hundreds to low thousands of memories. Exact com
 
 ### Workspace observations
 
-User's OpenClaw workspace at `~/.openclaw/workspace/`:
-- `MEMORY.md` — manually curated, in Chinese, tracks people/servers/chat rules
-- `memory/2026-02-05.md`, `memory/2026-02-06.md` — daily logs (only 2 days)
-- Agent personality in `SOUL.md` — casual, bilingual (Chinese/English)
-- Discord integration active (multiple servers)
-- The "lobotomy problem" hasn't hit yet (only 2 days of logs), but the flat Markdown structure will degrade fast with daily use
+Observed an existing OpenClaw workspace with:
+- Manually curated memory file — bilingual, tracks people/servers/chat rules
+- Daily session logs (only a few days old)
+- Agent personality file — casual, bilingual (Chinese/English)
+- Multi-platform integration active (Discord, CLI)
+- The "lobotomy problem" hasn't hit yet (small log volume), but the flat Markdown structure will degrade fast with daily use
+
+---
+
+## 2026-02-18 — Schema Deep Design
+
+### The core tension
+
+Schema must be rich enough for deep queries (causal chains, emotion tracking, cross-session reasoning) but simple enough that a Writer LLM can reliably produce correct output. Tested against three user profiles (student, founder, researcher) to ensure generality.
+
+### Decision: Memory.kind as open string, not separate node types
+
+Debated: should Decision, Event, Emotion be separate node types?
+
+**No.** All are Memory nodes with a `kind` field. Reasons:
+- Writer LLM only needs to classify one field, not decide which node type to create
+- Adding new kinds (e.g., "hypothesis" for a researcher) = zero schema change
+- Queries like "all decisions" = `WHERE kind = 'decision'` — simple
+- Editor can reclassify kind without deleting/recreating nodes
+
+### Decision: One RELATES_TO with type field, not separate relationship types
+
+Debated: `CAUSED_BY`, `FOLLOWS`, `CONTRADICTS` as separate Neo4j relationship types vs one `RELATES_TO` with a `type` property.
+
+Chose **single RELATES_TO**. At personal graph scale (<100K nodes), zero performance difference. But gains:
+- Adding new relation types = new string value, no migration
+- Weight property on every relation enables cross-type ranking
+- Writer can produce types the Editor hasn't seen yet
+- Simpler Cypher for multi-type traversal
+
+### Decision: Entity.aliases as String[] for multilingual
+
+"老王" and "Wang Wei" must resolve to the same Entity. `aliases` array is the simplest correct solution. Writer writes both names, Editor merges on alias overlap.
+
+Not a separate AliasNode — that adds joins for zero benefit at this scale.
+
+### Decision: MENTIONS.role limited to 4 values
+
+subject | object | context | source. Tested with real conversations from the user's daily logs. These 4 cover every case encountered. More granular roles (instrument, beneficiary, location) would tank LLM extraction accuracy.
+
+### Validated against real query scenarios
+
+All five target queries work cleanly against the schema:
+1. Learning progress → kind filter + Entity.type + temporal
+2. Decisions + reasons → kind='decision' + RELATES_TO {type: 'caused_by'}
+3. Person × topic cross → Entity alias match + Entity.type filter
+4. Emotion tracking → kind='emotion' + temporal + causal chain
+5. Cross-session reasoning → RELATES_TO chain traversal with temporal bounds
+
+---
+
+## 2026-02-18 — Schema v2: Peer Review Patches
+
+External review identified 6 gaps in v1. All addressed:
+
+### Patch 1: sourceRef (provenance pointer)
+Added `sourceRef` (e.g. "discord:channelId:messageId") to Memory. Without it, `sourceQuote` alone can't pinpoint the exact message in a 50-message session. Essential for "replay context" and debugging extraction errors.
+
+### Patch 2: eventTimeStart/End (time ranges)
+Replaced single `eventTime` with `eventTimeStart` + `eventTimeEnd`. Many memories are naturally ranges: "spent February reading DDIA", "in NYC this week", "currently job hunting". `eventTimeEnd = null` means point-in-time.
+
+### Patch 3: LINKED_TO.active — Editor-only with consistency rules
+Added `active` (Boolean) and `until` (DateTime?) to LINKED_TO. Rules:
+- Writer **never** writes `active`. It always defaults to `true`.
+- Editor maintains `active`. Can set `false` without `until` (ended but time unknown).
+- `active=false` + `until=null` is valid. `active=true` + `until != null` is invalid (Editor must enforce).
+
+### Patch 4: Retrieval scoring formula — floor clamp
+Changed from `sim × confidence × salience` to `sim × (0.6 + 0.4*conf) × (0.6 + 0.4*sal)`.
+Pure multiplication with defaults (0.5, 0.5) gives `sim × 0.25` — buries new memories. Floor clamp gives `sim × 0.64` — new memories can still surface while Editor boosts important ones.
+
+### Patch 5: Canonical pointer on Memory
+Originally added as `canonicalId` string field. Later upgraded to `CANONICAL` relationship in v2.1 (see Patch 7) to avoid string↔edge drift. When Editor supersedes a memory, old one gets `CANONICAL` edge pointing to new one. Retrieval filters `WHERE NOT (m)-[:CANONICAL]->()`. Avoids walking supersedes chains at query time.
+
+### Patch 6: status += suppressed
+Added `suppressed` to status enum. Covers: privacy requests, extraction errors, user deletion. Suppressed memories are excluded from retrieval but retained for audit. Different from `archived` (old but possibly true).
+
+### Bonus: RELATES_TO type naming convention
+Split into fact-layer (bare names: caused_by, follows, etc.) and editor-layer (`editor:` prefix: editor:summarizes, editor:supersedes). Default retrieval queries filter `WHERE NOT type STARTS WITH 'editor:'`. Prevents version/aggregation edges from polluting reasoning chains.
+
+### Decision: normalizedKind canonical set
+Writer's `kind` is open. Editor's `normalizedKind` converges to: fact | decision | preference | goal | emotion | observation | event. Max ~10-15 values. If this set grows past 20, something is wrong and the Editor prompt needs tightening.
+
+---
+
+## 2026-02-18 — Schema v2.1: Pre-Commit Hardening
+
+Second review round. Focused on eliminating redundancy and strengthening enforcement.
+
+### Patch 7: canonicalId → CANONICAL relationship
+Removed `canonicalId` string field from Memory. Replaced with `(Memory)-[:CANONICAL]->(Memory)` relationship. Reasoning: same redundancy problem we already solved for sourceSession — if you have both a string pointer and a relationship, they will eventually drift. `editor:supersedes` remains as the version chain / audit trail. `CANONICAL` is the O(1) index for retrieval filtering.
+
+### Patch 8: eventTimeStart null = unknown
+Changed semantics from "null = same as timestamp" to "null = unknown/not specified". The old definition created false certainty — if Writer can't extract event time, that's unknown, not "it happened right now". If known to equal extraction time, set it explicitly.
+
+### Patch 9: sourceAuthor provenance field
+Added `sourceAuthor: String?` to Memory. Hashed user ID or speaker identifier. Disambiguates multi-speaker channels (Discord, group chats). Essential for "who said this?" queries and trust scoring.
+
+### Patch 10: Validation rules (Writer vs Editor boundary)
+Added mechanical enforcement section to design doc. Key rules:
+- Writer MUST NOT create `editor:*` RELATES_TO types, `CANONICAL` edges, or write `LINKED_TO.active`
+- Writer SHOULD create at least one `MENTIONS {role: 'subject'}` per Memory
+- Editor MUST NOT modify provenance fields (immutable)
+- Editor MUST log every mutation as EditAction
+- All `RELATES_TO` edges require `weight` — no weightless edges
+
+### Patch 11: Constraints & indexes
+Added full constraint/index specification to design doc and updated `init-schema.cypher`:
+- Uniqueness: Memory.id, Entity.id, Session.id, EditAction.id, Category.name
+- Performance: Memory(status, timestamp, eventTimeStart, expiresAt, normalizedKind), Entity(name, normalizedType)
+- Fulltext: Entity.name for alias resolution
+- Vector: both Memory.embedding and Entity.embedding
+
+### Housekeeping: PII sanitization
+Replaced all personal names, workspace paths, and identifying details with generic examples before committing to version control.
 
 ---
