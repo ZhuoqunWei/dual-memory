@@ -13,7 +13,7 @@
 
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { Type } from "@sinclair/typebox";
-import { parseConfig } from "./config.js";
+import { parseConfig, vectorDimsForModel } from "./config.js";
 import { Neo4jClient } from "./neo4j-client.js";
 import { Embeddings } from "./embeddings.js";
 import { Writer } from "./writer.js";
@@ -36,8 +36,13 @@ const dualMemoryPlugin = {
     // ========================================================================
 
     const cfg = parseConfig(api.pluginConfig);
-    const db = new Neo4jClient(cfg.neo4j.uri, cfg.neo4j.user, cfg.neo4j.password);
-    const embeddings = new Embeddings(cfg.embedding.apiKey, cfg.embedding.model);
+    const vectorDims = vectorDimsForModel(cfg.embedding.model);
+    const db = new Neo4jClient(cfg.neo4j.uri, cfg.neo4j.user, cfg.neo4j.password, vectorDims);
+    const embeddings = new Embeddings(
+      cfg.embedding.provider,
+      cfg.embedding.apiKey,
+      cfg.embedding.model,
+    );
     const writer = new Writer(
       cfg.extraction.provider,
       cfg.extraction.apiKey,

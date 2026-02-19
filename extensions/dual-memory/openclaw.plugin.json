@@ -13,16 +13,21 @@
       "placeholder": "dualmemory2026",
       "help": "Password for Neo4j (or use ${NEO4J_PASSWORD})"
     },
+    "embedding.provider": {
+      "label": "Embedding Provider",
+      "placeholder": "voyage",
+      "help": "Embedding provider: voyage (default, Anthropic recommended) or openai"
+    },
     "embedding.apiKey": {
-      "label": "OpenAI API Key (for embeddings)",
+      "label": "Embedding API Key",
       "sensitive": true,
-      "placeholder": "sk-proj-...",
-      "help": "API key for OpenAI embeddings (or use ${OPENAI_API_KEY}). Required even with Anthropic extraction."
+      "placeholder": "pa-...",
+      "help": "API key for embeddings (or use ${VOYAGE_API_KEY} / ${OPENAI_API_KEY})"
     },
     "embedding.model": {
       "label": "Embedding Model",
-      "placeholder": "text-embedding-3-small",
-      "help": "OpenAI embedding model to use"
+      "placeholder": "voyage-4-lite",
+      "help": "Embedding model: voyage-4-lite (default), voyage-4, text-embedding-3-small, etc."
     },
     "extraction.provider": {
       "label": "Extraction LLM Provider",
@@ -66,10 +71,18 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "provider": {
+            "type": "string",
+            "enum": ["voyage", "openai"]
+          },
           "apiKey": { "type": "string" },
           "model": {
             "type": "string",
-            "enum": ["text-embedding-3-small", "text-embedding-3-large"]
+            "enum": [
+              "voyage-4-lite", "voyage-4", "voyage-4-large",
+              "voyage-code-3", "voyage-3-lite", "voyage-3",
+              "text-embedding-3-small", "text-embedding-3-large"
+            ]
           }
         },
         "required": ["apiKey"]

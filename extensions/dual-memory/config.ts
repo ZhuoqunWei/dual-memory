@@ -1,14 +1,16 @@
 /**
  * Plugin configuration types and parsing.
  *
- * Supports two LLM providers for fact extraction:
- *   - "anthropic" (default): uses Claude via Anthropic API
- *   - "openai": uses GPT models via OpenAI API
+ * Embeddings:
+ *   - "voyage" (default): Voyage AI (voyage-4-lite, 1024d)
+ *   - "openai": OpenAI (text-embedding-3-small, 1536d)
  *
- * Embeddings always use OpenAI (text-embedding-3-small) since
- * Anthropic doesn't have an embeddings API. Voyage AI support
- * can be added later.
+ * Extraction (fact extraction LLM):
+ *   - "anthropic" (default): Claude via Anthropic API
+ *   - "openai": GPT models via OpenAI API
  */
+
+import type { EmbeddingProvider } from "./embeddings.js";
 
 export type DualMemoryConfig = {
   neo4j: {
@@ -17,6 +19,7 @@ export type DualMemoryConfig = {
     password: string;
   };
   embedding: {
+    provider: EmbeddingProvider;
     apiKey: string;
     model: string;
   };
@@ -30,6 +33,14 @@ export type DualMemoryConfig = {
 };
 
 const EMBEDDING_DIMENSIONS: Record<string, number> = {
+  // Voyage AI models (voyage-4 series default to 1024)
+  "voyage-4-lite": 1024,
+  "voyage-4": 1024,
+  "voyage-4-large": 1024,
+  "voyage-code-3": 1024,
+  "voyage-3-lite": 512,
+  "voyage-3": 1024,
+  // OpenAI models
   "text-embedding-3-small": 1536,
   "text-embedding-3-large": 3072,
 };
@@ -37,7 +48,9 @@ const EMBEDDING_DIMENSIONS: Record<string, number> = {
 export function vectorDimsForModel(model: string): number {
   const dims = EMBEDDING_DIMENSIONS[model];
   if (!dims) {
-    throw new Error(`Unsupported embedding model: ${model}`);
+    throw new Error(
+      `Unsupported embedding model: ${model}. Supported: ${Object.keys(EMBEDDING_DIMENSIONS).join(", ")}`,
+    );
   }
   return dims;
 }
@@ -50,6 +63,16 @@ function resolveEnvVars(value: string): string {
     }
     return envValue;
   });
+}
+
+function resolveApiKey(
+  explicit: string | undefined,
+  envVarName: string,
+  errorMsg: string,
+): string {
+  if (explicit) return resolveEnvVars(explicit);
+  if (process.env[envVarName]) return process.env[envVarName]!;
+  throw new Error(errorMsg);
 }
 
 export function parseConfig(value: unknown): DualMemoryConfig {
@@ -65,32 +88,35 @@ export function parseConfig(value: unknown): DualMemoryConfig {
     throw new Error("neo4j.password is required");
   }
 
-  // Embedding config (OpenAI for now — no Claude embeddings API)
+  // Embedding config (defaults to Voyage AI)
   const embedding = cfg.embedding as Record<string, unknown> | undefined;
-  if (!embedding || typeof embedding.apiKey !== "string") {
-    throw new Error("embedding.apiKey is required");
-  }
+  const embeddingProvider: EmbeddingProvider =
+    (embedding?.provider as string) === "openai" ? "openai" : "voyage";
 
+  const defaultEmbeddingModel =
+    embeddingProvider === "voyage" ? "voyage-4-lite" : "text-embedding-3-small";
   const embeddingModel =
-    typeof embedding.model === "string" ? embedding.model : "text-embedding-3-small";
+    typeof embedding?.model === "string" ? embedding.model : defaultEmbeddingModel;
   vectorDimsForModel(embeddingModel); // validate
+
+  const embeddingApiKey = resolveApiKey(
+    embedding?.apiKey as string | undefined,
+    embeddingProvider === "voyage" ? "VOYAGE_API_KEY" : "OPENAI_API_KEY",
+    `embedding.apiKey is required (or set ${embeddingProvider === "voyage" ? "VOYAGE_API_KEY" : "OPENAI_API_KEY"})`,
+  );
 
   // Extraction config (defaults to Anthropic)
   const extraction = cfg.extraction as Record<string, unknown> | undefined;
   const extractionProvider =
-    (extraction?.provider as string) === "openai" ? "openai" as const : "anthropic" as const;
+    (extraction?.provider as string) === "openai"
+      ? ("openai" as const)
+      : ("anthropic" as const);
 
-  // For extraction API key: check extraction.apiKey, fall back to ANTHROPIC_API_KEY env var
-  let extractionApiKey: string;
-  if (extraction?.apiKey && typeof extraction.apiKey === "string") {
-    extractionApiKey = resolveEnvVars(extraction.apiKey);
-  } else if (process.env.ANTHROPIC_API_KEY) {
-    extractionApiKey = process.env.ANTHROPIC_API_KEY;
-  } else {
-    throw new Error(
-      "extraction.apiKey is required (or set ANTHROPIC_API_KEY env var)",
-    );
-  }
+  const extractionApiKey = resolveApiKey(
+    extraction?.apiKey as string | undefined,
+    extractionProvider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY",
+    `extraction.apiKey is required (or set ${extractionProvider === "anthropic" ? "ANTHROPIC_API_KEY" : "OPENAI_API_KEY"})`,
+  );
 
   const extractionModel =
     typeof extraction?.model === "string"
@@ -106,7 +132,8 @@ export function parseConfig(value: unknown): DualMemoryConfig {
       password: resolveEnvVars(neo4j.password),
     },
     embedding: {
-      apiKey: resolveEnvVars(embedding.apiKey),
+      provider: embeddingProvider,
+      apiKey: embeddingApiKey,
       model: embeddingModel,
     },
     extraction: {

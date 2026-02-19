@@ -196,17 +196,17 @@ extensions/dual-memory/
 ├── neo4j-client.ts       # Neo4j driver wrapper: schema init, CRUD, retrieval
 ├── writer.ts             # LLM fact extraction (Anthropic + OpenAI support)
 ├── retrieval.ts          # Two-phase retrieval + context formatting
-├── embeddings.ts         # OpenAI embeddings wrapper
+├── embeddings.ts         # Voyage AI / OpenAI embeddings wrapper
 ├── config.ts             # Config parsing with env var resolution
 ├── openclaw.plugin.json  # Plugin manifest
-├── package.json          # Dependencies: neo4j-driver, openai, @anthropic-ai/sdk
+├── package.json          # Dependencies: neo4j-driver, openai, voyageai, @anthropic-ai/sdk
 ├── test-neo4j.ts         # Integration test (Neo4j only, mock embeddings)
 └── test-integration.ts   # Full integration test (requires API keys)
 ```
 
 ### Key decisions
 
-**Dual LLM provider support.** User uses Claude (Anthropic) for conversations. Writer extraction now supports both Anthropic and OpenAI as extraction providers. Embeddings still use OpenAI's text-embedding-3-small since Anthropic has no embeddings API.
+**Dual LLM provider support.** User uses Claude (Anthropic) for conversations. Writer extraction now supports both Anthropic and OpenAI as extraction providers.
 
 **Application-layer filtering for ANN queries.** Neo4j 2026.01.4 has syntax limitations on `WHERE` clauses after `CALL ... YIELD`. Moved status/canonical/expiry filtering to application layer with 3x over-fetch to compensate. Entity fetching is a separate query.
 
@@ -229,5 +229,46 @@ All passing against live Neo4j 2026.01.4:
 - No entity embedding generation (entities stored without embeddings for now)
 - No RELATES_TO creation between facts (Writer extracts them but doesn't write them yet — needs content-matching logic)
 - Not yet installed as an actual OpenClaw plugin (need API keys configured)
+
+---
+
+## 2026-02-19 — Voyage AI Embeddings
+
+### Decision: Voyage AI as default embedding provider
+
+Anthropic has no embeddings API. The choices were:
+- **Voyage AI** — Anthropic's recommended embedding partner. `voyage-4-lite` (1024d) — optimized for retrieval tasks, cheaper than OpenAI, lower dimensionality means faster vector search and smaller indexes
+- **OpenAI** — `text-embedding-3-small` (1536d) — solid but requires an OpenAI API key just for embeddings
+- **Local** — Ollama + nomic-embed-text — zero cost but adds deployment complexity
+
+Chose Voyage AI. Reasons:
+1. Anthropic recommends them — semantic alignment with the extraction LLM (Claude)
+2. 1024d vs 1536d means ~33% smaller vector indexes, faster ANN search
+3. Batch embedding natively supported (no chunking needed)
+4. One less OpenAI dependency for users who are all-in on Anthropic
+
+### Changes
+- Rewrote `embeddings.ts` — dual provider support (Voyage AI + OpenAI)
+- Updated `config.ts` — `embedding.provider: "voyage" | "openai"` (default: "voyage"), env var resolution for `VOYAGE_API_KEY`
+- Updated `neo4j-client.ts` — dynamic `vectorDims` constructor param (default 1024)
+- Updated `index.ts` — passes `vectorDimsForModel()` result to Neo4j client
+- Updated `openclaw.plugin.json` — added embedding provider option, Voyage models
+- Dropped old 1536d vector indexes, recreated at 1024d
+- Updated `init-schema.cypher` to default to 1024d
+- Updated `test-neo4j.ts` to use 1024d mock embeddings
+- Installed `voyageai` npm package
+- All tests passing, TypeScript compiles clean
+
+### Supported embedding models
+| Provider | Model | Dimensions |
+|----------|-------|-----------|
+| Voyage AI | voyage-4-lite (default) | 1024 |
+| Voyage AI | voyage-4 | 1024 |
+| Voyage AI | voyage-4-large | 1024 |
+| Voyage AI | voyage-code-3 | 1024 |
+| Voyage AI | voyage-3-lite | 512 |
+| Voyage AI | voyage-3 | 1024 |
+| OpenAI | text-embedding-3-small | 1536 |
+| OpenAI | text-embedding-3-large | 3072 |
 
 ---

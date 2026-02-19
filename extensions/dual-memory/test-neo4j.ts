@@ -12,9 +12,11 @@ const NEO4J_URI = "bolt://localhost:7687";
 const NEO4J_USER = "neo4j";
 const NEO4J_PASSWORD = "dualmemory2026";
 
-/** Generate a random 1536-dim vector (mock embedding). */
+const VECTOR_DIMS = 1024; // Voyage AI default (voyage-4-lite)
+
+/** Generate a random 1024-dim vector (mock embedding). */
 function mockEmbedding(): number[] {
-  const v = Array.from({ length: 1536 }, () => Math.random() * 2 - 1);
+  const v = Array.from({ length: VECTOR_DIMS }, () => Math.random() * 2 - 1);
   // Normalize to unit vector for cosine similarity
   const norm = Math.sqrt(v.reduce((s, x) => s + x * x, 0));
   return v.map((x) => x / norm);
@@ -25,7 +27,7 @@ async function test() {
 
   // 1. Connect
   console.log("1. Connecting to Neo4j...");
-  const db = new Neo4jClient(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD);
+  const db = new Neo4jClient(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, VECTOR_DIMS);
   await db.ensureSchema();
   console.log("   ✓ Connected and schema initialized\n");
 

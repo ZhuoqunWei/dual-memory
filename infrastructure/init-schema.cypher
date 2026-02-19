@@ -59,7 +59,7 @@ CREATE VECTOR INDEX memoryEmbeddings IF NOT EXISTS
 FOR (m:Memory) ON (m.embedding)
 OPTIONS {
   indexConfig: {
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,  // voyage-4-lite default; adjust if using OpenAI (1536)
     `vector.similarity_function`: 'cosine'
   }
 };
@@ -68,7 +68,7 @@ CREATE VECTOR INDEX entityEmbeddings IF NOT EXISTS
 FOR (e:Entity) ON (e.embedding)
 OPTIONS {
   indexConfig: {
-    `vector.dimensions`: 1536,
+    `vector.dimensions`: 1024,  // voyage-4-lite default; adjust if using OpenAI (1536)
     `vector.similarity_function`: 'cosine'
   }
 };

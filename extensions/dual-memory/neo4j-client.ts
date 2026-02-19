@@ -113,15 +113,17 @@ const SCHEMA_STATEMENTS = [
   "CREATE INDEX session_date IF NOT EXISTS FOR (s:Session) ON (s.date)",
 ];
 
-// Vector indexes need separate handling (OPTIONS clause)
-const VECTOR_INDEX_STATEMENTS = [
-  `CREATE VECTOR INDEX memoryEmbeddings IF NOT EXISTS
-   FOR (m:Memory) ON (m.embedding)
-   OPTIONS { indexConfig: { \`vector.dimensions\`: 1536, \`vector.similarity_function\`: 'cosine' }}`,
-  `CREATE VECTOR INDEX entityEmbeddings IF NOT EXISTS
-   FOR (e:Entity) ON (e.embedding)
-   OPTIONS { indexConfig: { \`vector.dimensions\`: 1536, \`vector.similarity_function\`: 'cosine' }}`,
-];
+// Vector indexes are created dynamically based on embedding model dimensions
+function vectorIndexStatements(dims: number): string[] {
+  return [
+    `CREATE VECTOR INDEX memoryEmbeddings IF NOT EXISTS
+     FOR (m:Memory) ON (m.embedding)
+     OPTIONS { indexConfig: { \`vector.dimensions\`: ${dims}, \`vector.similarity_function\`: 'cosine' }}`,
+    `CREATE VECTOR INDEX entityEmbeddings IF NOT EXISTS
+     FOR (e:Entity) ON (e.embedding)
+     OPTIONS { indexConfig: { \`vector.dimensions\`: ${dims}, \`vector.similarity_function\`: 'cosine' }}`,
+  ];
+}
 
 // ============================================================================
 // Client
@@ -131,13 +133,16 @@ export class Neo4jClient {
   private driver: Driver;
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  private vectorDims: number;
 
   constructor(
     uri: string,
     user: string,
     password: string,
+    vectorDims: number = 1024,
   ) {
     this.driver = neo4j.driver(uri, neo4j.auth.basic(user, password));
+    this.vectorDims = vectorDims;
   }
 
   /**
@@ -158,8 +163,8 @@ export class Neo4jClient {
       for (const stmt of SCHEMA_STATEMENTS) {
         await session.run(stmt);
       }
-      // Run vector index creation
-      for (const stmt of VECTOR_INDEX_STATEMENTS) {
+      // Run vector index creation (dimensions depend on embedding model)
+      for (const stmt of vectorIndexStatements(this.vectorDims)) {
         await session.run(stmt);
       }
       this.initialized = true;

@@ -96,7 +96,8 @@ The memory lives in Neo4j as a property graph. This matters — a graph is the r
                                     // Disambiguates multi-speaker channels. Hash for privacy.
 
   // --- Search ---
-  embedding:            Vector      // 1536d, text-embedding-3-small
+  embedding:            Vector      // Default: 1024d (Voyage AI voyage-4-lite)
+                                    // Also supports: 1536d (OpenAI text-embedding-3-small)
 })
 ```
 
@@ -113,7 +114,7 @@ The memory lives in Neo4j as a property graph. This matters — a graph is the r
                                     // e.g. "person:phone_hash", "org:domain", "project:repo_url"
                                     // null = no external key available
   firstSeen:            DateTime    // First appearance in the graph
-  embedding:            Vector      // For entity disambiguation
+  embedding:            Vector      // For entity disambiguation (same dimensions as Memory.embedding)
 })
 ```
 
@@ -449,7 +450,7 @@ extensions/dual-memory/
 ├── writer.ts             # Fact extraction logic
 ├── retrieval.ts          # Two-phase Neo4j query
 ├── neo4j-client.ts       # Neo4j driver wrapper
-├── embeddings.ts         # OpenAI embedding calls
+├── embeddings.ts         # Voyage AI / OpenAI embedding calls
 ├── config.ts             # Plugin config schema
 ├── openclaw.plugin.json  # Plugin manifest
 └── package.json          # With openclaw.extensions field
@@ -503,7 +504,7 @@ Using Neo4j 2026.01.4 Community Edition with native vector indexes:
 CREATE VECTOR INDEX memoryEmbeddings IF NOT EXISTS
 FOR (m:Memory) ON (m.embedding)
 OPTIONS { indexConfig: {
-  `vector.dimensions`: 1536,
+  `vector.dimensions`: 1024,   -- Voyage AI default; adjust if using OpenAI (1536)
   `vector.similarity_function`: 'cosine'
 }}
 ```
@@ -553,17 +554,18 @@ FOR (e:Entity) ON EACH [e.name]
 // application-layer search or a separate AliasNode in the future.
 
 // === Vector indexes ===
+// Dimensions: 1024 for Voyage AI (default), 1536 for OpenAI — adjust to match embedding model
 CREATE VECTOR INDEX memoryEmbeddings IF NOT EXISTS
 FOR (m:Memory) ON (m.embedding)
 OPTIONS { indexConfig: {
-  `vector.dimensions`: 1536,
+  `vector.dimensions`: 1024,
   `vector.similarity_function`: 'cosine'
 }};
 
 CREATE VECTOR INDEX entityEmbeddings IF NOT EXISTS
 FOR (e:Entity) ON (e.embedding)
 OPTIONS { indexConfig: {
-  `vector.dimensions`: 1536,
+  `vector.dimensions`: 1024,
   `vector.similarity_function`: 'cosine'
 }};
 ```
@@ -603,7 +605,7 @@ Validated against query scenarios:
 | Retrieval | TypeScript (same plugin) | Runs via `before_agent_start` hook |
 | Editor Agent | Python | Better LLM tooling, graph reasoning, scheduled |
 | Editor Scheduler | Python (schedule lib) | Nightly + threshold triggers |
-| Embeddings | text-embedding-3-small (1536d) | Cheap, within Neo4j's 4096 max |
+| Embeddings | Voyage AI voyage-4-lite (1024d) | Anthropic's recommended partner; also supports OpenAI text-embedding-3-small (1536d) |
 | Infrastructure | Docker Compose | Neo4j only (no Kafka for MVP) |
 
 ---
