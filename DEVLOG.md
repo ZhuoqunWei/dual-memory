@@ -272,3 +272,66 @@ Chose Voyage AI. Reasons:
 | OpenAI | text-embedding-3-large | 3072 |
 
 ---
+
+## 2026-02-19 — Phase 2: Editor Agent
+
+### Architecture
+Standalone Python process (`editor/editor/`) connecting to the same Neo4j instance. Runs via `python -m editor.main --once --all`. Uses venv at `editor/.venv/` with Python 3.13 (homebrew).
+
+### 9-Step Pipeline
+| Step | Type | What it does |
+|------|------|-------------|
+| dedup | algorithmic + LLM | Tier 1: cosine ≥ 0.98 exact archive. Tier 2: 0.85-0.98 LLM-assisted |
+| classify | rule-based | Normalize kind/type to canonical sets |
+| categories | LLM | Cluster similar memories, create Category nodes (quorum ≥ 3) |
+| contradictions | LLM | Detect conflicting facts, lower confidence |
+| entity_resolution | algorithmic | Alias overlap merge → MERGED_INTO edge |
+| relationships | LLM | Create RELATES_TO edges between co-entity memories |
+| entity_links | LLM | Create LINKED_TO edges between entities (friend, teacher, etc.) |
+| confidence | algorithmic | Multi-session boost +0.1, decay -0.05/cycle |
+| mark_reviewed | algorithmic | Set status = 'reviewed' |
+
+### First Run Results
+- 190 raw memories → 52 surviving (73% dedup rate)
+- 25 entity merges, 558 RELATES_TO edges, 179 EditActions
+- Second run (after more sessions): 300 total → 54 active (82% cleanup rate)
+
+### Neo4j 2026 Gotchas
+- **`count(*)` with OPTIONAL MATCH**: Always returns ≥ 1 (counts the row). Must count the relationship variable: `count(c)` not `count(*)`.
+- **`NOT IN` invalid syntax**: Use `WHERE m.status IN ['raw', 'reviewed']` instead of `NOT IN ['archived', 'suppressed']`.
+- **Cartesian product warnings** on `MATCH (a {id: $x}), (b {id: $y})`: Harmless for ID lookups, safe to ignore.
+
+---
+
+## 2026-02-19 — LINKED_TO Entity Relationships
+
+### Problem
+Schema designed LINKED_TO edges (Entity ↔ Entity) in v2.1 but never implemented. Retrieval showed entities but not how they relate (三哥 ↔ ZWei friendship, Maggie → Zku teacher).
+
+### Implementation (3 layers)
+- **Editor** (`steps/entity_links.py`): Mines co-mentioned entity pairs from memories, LLM classifies relationship type. Batches 8 pairs/call.
+- **Writer** (`writer.ts`): Added `entityLinks` to extraction prompt + `EntityLink` type. LLM extracts relationships alongside facts.
+- **Writer persistence** (`neo4j-client.ts`): `writeEntityLinks()` using `MERGE (a)-[r:LINKED_TO]->(b)`.
+- **Retrieval** (`neo4j-client.ts` + `retrieval.ts`): Fetches LINKED_TO edges via entity queries, formats as "三哥 is friend of ZWei".
+
+### Results
+17 LINKED_TO edges created. Key relationships: ZWei→Zku creator, Maggie→Zku teacher, 三哥↔ZWei friend, Wednesday→Zku acquaintance.
+
+---
+
+## 2026-02-19 — Salience Filtering (Cost Reduction)
+
+### Problem
+Writer prompt said "prefer over-extraction to under-extraction" → ~8 facts/session, 73% archived as duplicates. Every fact costs: embedding + Neo4j write + downstream Editor LLM calls.
+
+### Fix (Writer-side only, zero new LLM calls)
+1. **Prompt tightened**: "Extract ONLY facts worth remembering long-term." Added 6 skip criteria (greetings, meta-conversation, mechanical steps, obvious facts, repeated facts, salience < 0.35). Added target "3-6 facts per conversation" + counter-example showing empty extraction.
+2. **Post-extraction filter**: `SALIENCE_FLOOR = 0.35` — drops facts the LLM itself labeled as trivial before embedding/persisting.
+3. **Logging**: Shows `extracted N facts, persisted M memories` for monitoring.
+
+### Entity Cleanup
+- Merged 三哥 → Sirui Zhang (added alias, MERGED_INTO edge already existed)
+- Deleted test entities: Sarah, User (from synthetic Python/pandas memory)
+- Archived 9 meta-observation memories (system documenting its own schema)
+
+---
