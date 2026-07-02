@@ -17,7 +17,7 @@
     "@anthropic-ai/sdk": "^0.77.0",
     "@sinclair/typebox": "^0.34.0",
     "neo4j-driver": "^5.27.0",
-    "openai": "^4.80.0",
+    "openai": "^6.45.0",
     "voyageai": "^0.1.0"
   },
   "openclaw": {
