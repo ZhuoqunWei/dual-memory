@@ -138,6 +138,10 @@ cd extensions/dual-memory
 npm run test:integration
 ```
 
+## Publishing
+
+See [PUBLISHING.md](PUBLISHING.md) for the exact GitHub CLI commands and suggested repository metadata.
+
 ## Status
 
 Implemented:
