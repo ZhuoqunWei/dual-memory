@@ -2,6 +2,7 @@
 node_modules/
 .venv/
 venv/
+.cache/
 
 # Environment
 .env
@@ -14,6 +15,7 @@ neo4j-data/
 dist/
 build/
 *.egg-info/
+*.whl
 
 # OS
 .DS_Store
@@ -24,6 +26,10 @@ build/
 
 # Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Python
 __pycache__/
@@ -31,6 +37,16 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
 
 # Local data
 neo4j_data/
+
+# Local assistant/tool state
+.claude/
+.codex/
+.agents/
