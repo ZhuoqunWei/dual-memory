@@ -1,7 +1,7 @@
 """Step 8: Entity-to-Entity LINKED_TO creation.
 
 Mines co-mentioned entity pairs from memories, asks LLM for relationship type,
-creates LINKED_TO edges between entities (e.g., 三哥 -[friend]-> ZWei).
+creates LINKED_TO edges between entities (e.g., Alice -[colleague]-> Bob).
 """
 
 from __future__ import annotations
@@ -65,7 +65,7 @@ def run_entity_links(
 
 For each pair, return:
 - relation: the relationship type (e.g., "friend", "sibling", "colleague", "teacher", "student", "creator", "uses", "member_of", "knows")
-- detail: a short human-readable description (e.g., "calls him 三哥", "学姐 who teaches Zku")
+- detail: a short human-readable description (e.g., "recommended Rust", "teaches the user")
 - sentiment: "positive" | "negative" | "neutral" | "mixed"
 - strength: 0.0-1.0 how strong/close the relationship is
 - direction: "a_to_b" | "b_to_a" | "mutual" — who relates to whom

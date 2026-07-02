@@ -91,11 +91,11 @@ Each entity has:
 - "weight": 0.0-1.0 strength of connection
 
 ## Entity Link Schema (relationships between entities)
-When the conversation reveals relationships between entities (e.g., "Bob is my friend", "三哥在深圳"), include them:
+When the conversation reveals relationships between entities (e.g., "Bob is my friend", "Alice works in Shenzhen"), include them:
 - "source": name of the first entity (must match an entity name in facts)
 - "target": name of the second entity (must match an entity name in facts)
 - "relation": relationship type (e.g., "friend", "sibling", "colleague", "teacher", "student", "creator", "uses", "member_of")
-- "detail": short description (e.g., "calls him 三哥", "recommended Rust")
+- "detail": short description (e.g., "recommended Rust", "works in Shenzhen")
 - "sentiment": "positive" | "negative" | "neutral" | "mixed"
 - "strength": 0.0-1.0 how strong/close the relationship is
 Do NOT write "active" field — it defaults to true.
@@ -233,12 +233,20 @@ export class Writer {
         })),
     }));
 
-    // 4. Post-extraction filter: drop low-salience facts
-    const SALIENCE_FLOOR = 0.35;
-    const filteredFacts = facts.filter((f) => f.salience >= SALIENCE_FLOOR);
+    // 4. Post-extraction filter: drop low-salience, short, and trivial facts
+    const SALIENCE_FLOOR = 0.50;
+    const TRIVIAL_PATTERN = /^(ok|okay|好的?|谢谢|thanks|sure|got it|sounds good|明白|嗯|对)/i;
+    const MIN_CONTENT_LENGTH = 20;
+
+    const filteredFacts = facts.filter((f) => {
+      if (f.salience < SALIENCE_FLOOR) return false;
+      if (f.content.length < MIN_CONTENT_LENGTH) return false;
+      if (TRIVIAL_PATTERN.test(f.content)) return false;
+      return true;
+    });
     if (filteredFacts.length < facts.length) {
       const dropped = facts.length - filteredFacts.length;
-      console.log(`[dual-memory] Dropped ${dropped} low-salience facts (< ${SALIENCE_FLOOR})`);
+      console.log(`[dual-memory] Dropped ${dropped} facts (salience/length/trivial filter)`);
     }
 
     // Convert entityLinks

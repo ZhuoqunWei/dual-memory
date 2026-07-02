@@ -98,7 +98,7 @@ export type RetrievalResult = {
   normalizedKind?: string;
   score: number;
   entities?: string[];
-  entityRelations?: string[];  // e.g., ["三哥 is friend of ZWei", "Maggie is teacher of Zku"]
+  entityRelations?: string[];  // e.g., ["Alice is colleague of Bob"]
 };
 
 // ============================================================================
@@ -212,6 +212,37 @@ export class Neo4jClient {
   // ========================================================================
 
   /**
+   * Check if a similar memory already exists (cosine similarity >= threshold).
+   * Returns the existing content string if found, null otherwise.
+   */
+  async findSimilar(embedding: number[], threshold: number = 0.92): Promise<string | null> {
+    await this.ensureSchema();
+    const session = this.driver.session();
+    try {
+      const result = await session.executeRead((tx: ManagedTransaction) =>
+        tx.run(
+          `CALL db.index.vector.queryNodes('memoryEmbeddings', 1, $embedding)
+           YIELD node AS mem, score AS sim
+           RETURN mem.id AS id, mem.content AS content, mem.status AS status, sim`,
+          { embedding },
+        ),
+      );
+      const record = result.records[0];
+      if (record) {
+        const status = record.get("status") as string;
+        if (status === "archived" || status === "suppressed") return null;
+        const sim = record.get("sim") as number;
+        if (sim >= threshold) {
+          return record.get("content") as string;
+        }
+      }
+      return null;
+    } finally {
+      await session.close();
+    }
+  }
+
+  /**
    * Write extracted facts to Neo4j as Memory nodes + Entity nodes + relationships.
    * This is the Writer's main operation.
    */
@@ -228,6 +259,16 @@ export class Neo4jClient {
       for (let i = 0; i < facts.length; i++) {
         const fact = facts[i];
         const embedding = embeddings[i];
+
+        // Pre-write dedup: skip if similar memory already exists
+        const existingContent = await this.findSimilar(embedding, 0.92);
+        if (existingContent) {
+          console.log(
+            `[dual-memory] Skipped duplicate: "${fact.content.slice(0, 60)}..." ≈ "${existingContent.slice(0, 60)}..."`,
+          );
+          continue;
+        }
+
         const memoryId = randomUUID();
         memoryIds.push(memoryId);
 
@@ -328,8 +369,7 @@ export class Neo4jClient {
             `MATCH (a:Entity {name: $source}), (b:Entity {name: $target})
              MERGE (a)-[r:LINKED_TO]->(b)
              SET r.relation = $relation, r.detail = $detail,
-                 r.sentiment = $sentiment, r.strength = $strength,
-                 r.active = true`,
+                 r.sentiment = $sentiment, r.strength = $strength`,
             {
               source: link.source,
               target: link.target,
@@ -351,56 +391,37 @@ export class Neo4jClient {
   // ========================================================================
 
   /**
-   * Two-phase retrieval: category routing → vector search within subgraph.
-   * Falls back to full ANN search if no categories match.
+   * Hub entity threshold — entities with more than this many active memories
+   * are too generic for graph expansion (e.g., "User" connects to 137 memories).
+   * They're still included in results display, just not used for expansion.
+   */
+  private static readonly HUB_ENTITY_THRESHOLD = 30;
+
+  /**
+   * Hybrid retrieval: vector seeds → graph expansion via MENTIONS → rerank.
+   *
+   * Step 1: ANN vector search for seed memories (top 5).
+   * Step 2: Extract non-hub entities from seeds, expand via MENTIONS edges
+   *         to find related memories not in the seed set.
+   * Step 3: Score expansions using vector similarity + entity overlap bonus.
+   * Step 4: Merge seeds + expansions, dedupe, rerank, return top-k.
+   *
+   * Falls back to pure vector search if graph expansion yields nothing.
    */
   async retrieve(
     queryVector: number[],
     limit: number = 10,
-    categoryNames?: string[],
+    _categoryNames?: string[],
   ): Promise<RetrievalResult[]> {
     await this.ensureSchema();
     const session = this.driver.session();
 
     try {
-      // Phase 1: If categories provided, do category-scoped search
-      if (categoryNames && categoryNames.length > 0) {
-        const result = await session.executeRead((tx: ManagedTransaction) =>
-          tx.run(
-            `MATCH (mem:Memory)-[:IN_CATEGORY]->(cat:Category)
-             WHERE cat.name IN $categoryNames
-               AND mem.status NOT IN ['archived', 'suppressed']
-               AND NOT EXISTS { (mem)-[:CANONICAL]->() }
-               AND (mem.expiresAt IS NULL OR mem.expiresAt > datetime())
-             WITH mem, vector.similarity.cosine(mem.embedding, $queryVector) AS sim
-             WITH mem, sim * (0.6 + 0.4 * mem.confidence) * (0.6 + 0.4 * mem.salience) AS score
-             WHERE score > 0.1
-             ORDER BY score DESC LIMIT $limit
-             OPTIONAL MATCH (mem)-[:MENTIONS]->(e:Entity)
-             RETURN mem.id AS id, mem.content AS content, mem.kind AS kind,
-                    mem.normalizedKind AS normalizedKind, score,
-                    collect(DISTINCT e.name) AS entities`,
-            { categoryNames, queryVector, limit: neo4j.int(limit) },
-          ),
-        );
+      // ── Step 1: Vector seed recall ──────────────────────────────────
+      const seedCount = Math.max(5, Math.ceil(limit * 0.6));
+      const annLimit = neo4j.int(seedCount * 3); // over-fetch for filtering
 
-        if (result.records.length > 0) {
-          return result.records.map((r) => ({
-            id: r.get("id"),
-            content: r.get("content"),
-            kind: r.get("kind"),
-            normalizedKind: r.get("normalizedKind"),
-            score: r.get("score"),
-            entities: r.get("entities"),
-          }));
-        }
-      }
-
-      // Phase 2 / fallback: full ANN search across all memories
-      // Note: We fetch more than needed and filter in application to avoid Cypher syntax
-      // limitations around WHERE after CALL/YIELD in some Neo4j versions.
-      const annLimit = neo4j.int(limit * 3); // over-fetch to account for filtering
-      const result = await session.executeRead((tx: ManagedTransaction) =>
+      const annResult = await session.executeRead((tx: ManagedTransaction) =>
         tx.run(
           `CALL db.index.vector.queryNodes('memoryEmbeddings', $annLimit, $queryVector)
            YIELD node AS mem, score AS sim
@@ -413,9 +434,8 @@ export class Neo4jClient {
         ),
       );
 
-      // Apply filters and scoring in application layer
       const now = new Date().toISOString();
-      const scored = result.records
+      const seeds = annResult.records
         .filter((r) => {
           const status = r.get("status");
           if (status === "archived" || status === "suppressed") return false;
@@ -434,35 +454,169 @@ export class Neo4jClient {
             kind: r.get("kind") as string,
             normalizedKind: r.get("normalizedKind") as string | undefined,
             score,
+            source: "vector" as const,
           };
         })
         .sort((a, b) => b.score - a.score)
+        .slice(0, seedCount);
+
+      if (seeds.length === 0) return [];
+
+      // ── Step 2: Extract entities from seeds, filter hubs ────────────
+      const seedIds = seeds.map((s) => s.id);
+
+      const entityResult = await session.executeRead((tx: ManagedTransaction) =>
+        tx.run(
+          `UNWIND $seedIds AS memId
+           MATCH (m:Memory {id: memId})-[:MENTIONS]->(e:Entity)
+           WHERE e.active IS NULL OR e.active = true
+           WITH e.name AS name, count(DISTINCT m) AS seedHits
+           // Count total active memories for hub detection
+           OPTIONAL MATCH (e2:Entity {name: name})<-[:MENTIONS]-(allMem:Memory)
+           WHERE allMem.status IN ['active', 'raw', 'reviewed']
+           WITH name, seedHits, count(DISTINCT allMem) AS totalMems
+           RETURN name, seedHits, totalMems`,
+          { seedIds },
+        ),
+      );
+
+      // Separate hub entities from expansion-eligible entities
+      const expansionEntities: string[] = [];
+      for (const r of entityResult.records) {
+        const name = r.get("name") as string;
+        const totalMems = (r.get("totalMems") as number) ?? 0;
+        if (totalMems <= Neo4jClient.HUB_ENTITY_THRESHOLD) {
+          expansionEntities.push(name);
+        }
+      }
+
+      // ── Step 3: Graph expansion via MENTIONS ────────────────────────
+      type ScoredResult = {
+        id: string;
+        content: string;
+        kind: string;
+        normalizedKind?: string;
+        score: number;
+        source: "vector" | "graph";
+      };
+
+      let expansions: ScoredResult[] = [];
+
+      if (expansionEntities.length > 0) {
+        const expandResult = await session.executeRead((tx: ManagedTransaction) =>
+          tx.run(
+            `UNWIND $entityNames AS eName
+             MATCH (e:Entity {name: eName})<-[:MENTIONS]-(m:Memory)
+             WHERE m.status IN ['active', 'raw', 'reviewed']
+               AND NOT m.id IN $seedIds
+               AND (m.expiresAt IS NULL OR m.expiresAt > datetime())
+             WITH m, collect(DISTINCT eName) AS sharedEntities
+             RETURN m.id AS id, m.content AS content, m.kind AS kind,
+                    m.normalizedKind AS normalizedKind,
+                    m.confidence AS confidence, m.salience AS salience,
+                    m.embedding AS embedding,
+                    sharedEntities`,
+            { entityNames: expansionEntities, seedIds },
+          ),
+        );
+
+        // Score expansions: vector similarity + entity overlap bonus
+        const seen = new Set<string>();
+        for (const r of expandResult.records) {
+          const id = r.get("id") as string;
+          if (seen.has(id)) continue;
+          seen.add(id);
+
+          const embedding = r.get("embedding") as number[] | null;
+          const confidence = (r.get("confidence") as number) ?? 0.5;
+          const salience = (r.get("salience") as number) ?? 0.5;
+          const sharedEntities = r.get("sharedEntities") as string[];
+
+          // Vector similarity to query (compute in JS to avoid extra ANN call)
+          let sim = 0;
+          if (embedding && embedding.length === queryVector.length) {
+            sim = cosineSimilarity(queryVector, embedding);
+          }
+
+          // Entity overlap bonus: 0.1 per shared non-hub entity, capped at 0.3
+          const entityBonus = Math.min(0.3, sharedEntities.length * 0.1);
+
+          // Combined score: base vector score + entity bonus
+          const baseScore = sim * (0.6 + 0.4 * confidence) * (0.6 + 0.4 * salience);
+          const score = baseScore + entityBonus;
+
+          expansions.push({
+            id,
+            content: r.get("content") as string,
+            kind: r.get("kind") as string,
+            normalizedKind: r.get("normalizedKind") as string | undefined,
+            score,
+            source: "graph",
+          });
+        }
+      }
+
+      // ── Step 4: Merge, dedupe, rerank ───────────────────────────────
+      const merged = new Map<string, ScoredResult>();
+      for (const s of seeds) {
+        merged.set(s.id, s);
+      }
+      for (const e of expansions) {
+        const existing = merged.get(e.id);
+        if (!existing || e.score > existing.score) {
+          merged.set(e.id, e);
+        }
+      }
+
+      const ranked = [...merged.values()]
+        .sort((a, b) => b.score - a.score)
         .slice(0, limit);
 
-      // Now fetch entities + LINKED_TO relations for the top results
-      if (scored.length > 0) {
-        const ids = scored.map((s) => s.id);
+      const graphCount = ranked.filter((r) => r.source === "graph").length;
+      if (graphCount > 0) {
+        console.log(
+          `[dual-memory] Hybrid retrieval: ${ranked.length - graphCount} vector + ${graphCount} graph-expanded results`,
+        );
+      }
+
+      // ── Fetch entity decorations for final results ──────────────────
+      // Only include LINKED_TO relations where the target entity is also
+      // mentioned by at least one memory in the result set (relevance filter).
+      // Cap at 3 relations per entity to limit context size.
+      if (ranked.length > 0) {
+        const finalIds = ranked.map((r) => r.id);
         const entResult = await session.executeRead((tx: ManagedTransaction) =>
           tx.run(
-            `UNWIND $ids AS memId
+            `// Collect all entities mentioned by result memories
+             MATCH (resultMem:Memory)-[:MENTIONS]->(resultEnt:Entity)
+             WHERE resultMem.id IN $ids AND (resultEnt.active IS NULL OR resultEnt.active = true)
+             WITH collect(DISTINCT resultEnt.name) AS resultEntityNames
+             // Now decorate each memory
+             UNWIND $ids AS memId
              MATCH (m:Memory {id: memId})
              OPTIONAL MATCH (m)-[:MENTIONS]->(e:Entity)
-             WITH m, collect(DISTINCT e) AS ents
+             WHERE e.active IS NULL OR e.active = true
+             WITH m, resultEntityNames, collect(DISTINCT e) AS ents
              UNWIND ents AS e
              OPTIONAL MATCH (e)-[r:LINKED_TO]->(other:Entity)
-             WITH m, e, collect(DISTINCT {name: other.name, relation: r.relation}) AS links
+             WHERE (other.active IS NULL OR other.active = true)
+               AND other.name IN resultEntityNames
+             WITH m, e, collect(DISTINCT {name: other.name, relation: r.relation})[..3] AS links
              RETURN m.id AS id,
                     collect(DISTINCT e.name) AS entities,
                     collect(DISTINCT {from: e.name, links: links}) AS entityLinks`,
-            { ids },
+            { ids: finalIds },
           ),
         );
+
         const entityMap = new Map<string, string[]>();
         const relMap = new Map<string, string[]>();
         for (const r of entResult.records) {
           entityMap.set(r.get("id"), r.get("entities"));
-          // Flatten entity links into readable strings
-          const entityLinks = r.get("entityLinks") as Array<{from: string; links: Array<{name: string; relation: string}>}>;
+          const entityLinks = r.get("entityLinks") as Array<{
+            from: string;
+            links: Array<{ name: string; relation: string }>;
+          }>;
           const relStrings: string[] = [];
           for (const el of entityLinks) {
             for (const link of el.links) {
@@ -475,14 +629,25 @@ export class Neo4jClient {
             relMap.set(r.get("id"), [...new Set(relStrings)]);
           }
         }
-        return scored.map((s) => ({
-          ...s,
-          entities: entityMap.get(s.id) ?? [],
-          entityRelations: relMap.get(s.id),
+
+        return ranked.map((r) => ({
+          id: r.id,
+          content: r.content,
+          kind: r.kind,
+          normalizedKind: r.normalizedKind,
+          score: r.score,
+          entities: entityMap.get(r.id) ?? [],
+          entityRelations: relMap.get(r.id),
         }));
       }
 
-      return scored;
+      return ranked.map((r) => ({
+        id: r.id,
+        content: r.content,
+        kind: r.kind,
+        normalizedKind: r.normalizedKind,
+        score: r.score,
+      }));
     } finally {
       await session.close();
     }
@@ -621,4 +786,25 @@ export class Neo4jClient {
   async close(): Promise<void> {
     await this.driver.close();
   }
+}
+
+// ============================================================================
+// Utility functions
+// ============================================================================
+
+/**
+ * Cosine similarity between two vectors (used for graph expansion scoring).
+ * Both vectors must have the same length.
+ */
+function cosineSimilarity(a: number[], b: number[]): number {
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
 }

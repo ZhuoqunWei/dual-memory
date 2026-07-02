@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+.venv/
+venv/
 
 # Environment
 .env
@@ -10,6 +12,8 @@ neo4j-data/
 
 # Build output
 dist/
+build/
+*.egg-info/
 
 # OS
 .DS_Store
@@ -20,3 +24,13 @@ dist/
 
 # Logs
 *.log
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local data
+neo4j_data/

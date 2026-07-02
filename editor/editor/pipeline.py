@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .audit import AuditLog
@@ -146,7 +146,7 @@ def run_pipeline(
 
     # Step 8: Confidence
     if should_run("confidence"):
-        log.info("=== Step 7: Confidence ===")
+        log.info("=== Step 8: Confidence ===")
         result.confidence = run_confidence(batch, db, audit)
 
     # Mark all surviving batch memories as reviewed

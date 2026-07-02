@@ -6,12 +6,8 @@ Used for category centroid computation and entity embedding generation.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 import voyageai
-
-if TYPE_CHECKING:
-    from .config import EditorConfig
 
 log = logging.getLogger("editor.embeddings")
 

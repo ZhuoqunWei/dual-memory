@@ -2,7 +2,14 @@
   "name": "@openclaw/dual-memory",
   "version": "0.1.0",
   "description": "Dual-agent self-organizing memory with Neo4j knowledge graph",
+  "license": "MIT",
   "type": "module",
+  "scripts": {
+    "check": "npm run typecheck",
+    "typecheck": "tsc --project tsconfig.json",
+    "test:neo4j": "tsx test-neo4j.ts",
+    "test:integration": "tsx test-integration.ts"
+  },
   "peerDependencies": {
     "openclaw": ">=2026.2.0"
   },

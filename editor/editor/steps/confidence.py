@@ -1,4 +1,4 @@
-"""Step 7: Confidence management — multi-session boost + decay.
+"""Step 8: Confidence management — multi-session boost + decay.
 
 Purely algorithmic, no LLM calls.
 """

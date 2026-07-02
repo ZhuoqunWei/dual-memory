@@ -1,0 +1,49 @@
+name: Check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extensions/dual-memory/package-lock.json
+
+      - name: Install TypeScript dependencies
+        working-directory: extensions/dual-memory
+        run: npm ci
+
+      - name: Type-check Writer plugin
+        working-directory: extensions/dual-memory
+        run: npm run check
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Editor dependencies
+        working-directory: editor
+        run: pip install -e ".[dev]"
+
+      - name: Compile-check Editor
+        working-directory: editor
+        run: python -m compileall editor
+
+      - name: Run Editor unit tests
+        working-directory: editor
+        run: python -m pytest
+
+      - name: Lint Editor
+        working-directory: editor
+        run: python -m ruff check editor tests

@@ -59,7 +59,7 @@ ENTITY_TYPE_SYNONYMS: dict[str, str] = {
 
 # Dedup thresholds
 EXACT_DEDUP_COSINE = 0.98
-SEMANTIC_DEDUP_COSINE = 0.85
+SEMANTIC_DEDUP_COSINE = 0.80
 
 # Category thresholds
 CATEGORY_COSINE = 0.85

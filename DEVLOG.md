@@ -281,7 +281,7 @@ Standalone Python process (`editor/editor/`) connecting to the same Neo4j instan
 ### 9-Step Pipeline
 | Step | Type | What it does |
 |------|------|-------------|
-| dedup | algorithmic + LLM | Tier 1: cosine ≥ 0.98 exact archive. Tier 2: 0.85-0.98 LLM-assisted |
+| dedup | algorithmic + LLM | Tier 1: cosine >= 0.98 exact archive. Tier 2: 0.80-0.98 LLM-assisted |
 | classify | rule-based | Normalize kind/type to canonical sets |
 | categories | LLM | Cluster similar memories, create Category nodes (quorum ≥ 3) |
 | contradictions | LLM | Detect conflicting facts, lower confidence |
@@ -306,16 +306,16 @@ Standalone Python process (`editor/editor/`) connecting to the same Neo4j instan
 ## 2026-02-19 — LINKED_TO Entity Relationships
 
 ### Problem
-Schema designed LINKED_TO edges (Entity ↔ Entity) in v2.1 but never implemented. Retrieval showed entities but not how they relate (三哥 ↔ ZWei friendship, Maggie → Zku teacher).
+Schema designed LINKED_TO edges (Entity ↔ Entity) in v2.1 but never implemented. Retrieval showed entities but not how they relate (for example, friend or teacher relationships between people).
 
 ### Implementation (3 layers)
 - **Editor** (`steps/entity_links.py`): Mines co-mentioned entity pairs from memories, LLM classifies relationship type. Batches 8 pairs/call.
 - **Writer** (`writer.ts`): Added `entityLinks` to extraction prompt + `EntityLink` type. LLM extracts relationships alongside facts.
 - **Writer persistence** (`neo4j-client.ts`): `writeEntityLinks()` using `MERGE (a)-[r:LINKED_TO]->(b)`.
-- **Retrieval** (`neo4j-client.ts` + `retrieval.ts`): Fetches LINKED_TO edges via entity queries, formats as "三哥 is friend of ZWei".
+- **Retrieval** (`neo4j-client.ts` + `retrieval.ts`): Fetches LINKED_TO edges via entity queries, formats relationships such as "Alice is colleague of Bob".
 
 ### Results
-17 LINKED_TO edges created. Key relationships: ZWei→Zku creator, Maggie→Zku teacher, 三哥↔ZWei friend, Wednesday→Zku acquaintance.
+17 LINKED_TO edges created across creator, teacher, friend, and acquaintance-style relationships.
 
 ---
 
@@ -325,13 +325,13 @@ Schema designed LINKED_TO edges (Entity ↔ Entity) in v2.1 but never implemente
 Writer prompt said "prefer over-extraction to under-extraction" → ~8 facts/session, 73% archived as duplicates. Every fact costs: embedding + Neo4j write + downstream Editor LLM calls.
 
 ### Fix (Writer-side only, zero new LLM calls)
-1. **Prompt tightened**: "Extract ONLY facts worth remembering long-term." Added 6 skip criteria (greetings, meta-conversation, mechanical steps, obvious facts, repeated facts, salience < 0.35). Added target "3-6 facts per conversation" + counter-example showing empty extraction.
-2. **Post-extraction filter**: `SALIENCE_FLOOR = 0.35` — drops facts the LLM itself labeled as trivial before embedding/persisting.
+1. **Prompt tightened**: "Extract ONLY facts worth remembering long-term." Added 6 skip criteria (greetings, meta-conversation, mechanical steps, obvious facts, repeated facts, salience < 0.50). Added target "3-6 facts per conversation" + counter-example showing empty extraction.
+2. **Post-extraction filter**: `SALIENCE_FLOOR = 0.50` — drops facts the LLM itself labeled as trivial before embedding/persisting.
 3. **Logging**: Shows `extracted N facts, persisted M memories` for monitoring.
 
 ### Entity Cleanup
-- Merged 三哥 → Sirui Zhang (added alias, MERGED_INTO edge already existed)
-- Deleted test entities: Sarah, User (from synthetic Python/pandas memory)
+- Merged duplicate person entities through aliases (MERGED_INTO edge already existed)
+- Deleted synthetic test entities from local experiments
 - Archived 9 meta-observation memories (system documenting its own schema)
 
 ---

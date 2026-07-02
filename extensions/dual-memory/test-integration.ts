@@ -14,7 +14,7 @@ const NEO4J_URI = "bolt://localhost:7687";
 const NEO4J_USER = "neo4j";
 const NEO4J_PASSWORD = "dualmemory2026";
 
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 if (!OPENAI_API_KEY) {
   console.error("ERROR: OPENAI_API_KEY environment variable is required");
   process.exit(1);
@@ -41,11 +41,11 @@ async function test() {
 
   // 3. Initialize embeddings
   console.log("3. Initializing embeddings...");
-  const embeddings = new Embeddings(OPENAI_API_KEY, "text-embedding-3-small");
+  const embeddings = new Embeddings("openai", OPENAI_API_KEY, "text-embedding-3-small");
 
   // 4. Test Writer: extract facts from mock messages
   console.log("4. Testing Writer (LLM fact extraction)...");
-  const writer = new Writer(OPENAI_API_KEY, "gpt-4o-mini");
+  const writer = new Writer("openai", OPENAI_API_KEY, "gpt-4o-mini");
   const mockMessages = [
     {
       role: "user",

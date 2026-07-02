@@ -3,6 +3,13 @@ name = "dual-memory-editor"
 version = "0.2.0"
 description = "Editor agent for dual-agent memory system — consolidates raw memories in Neo4j"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "neo4j>=5.27.0",
     "anthropic>=0.40.0",

@@ -1,13 +1,13 @@
 """Step 1: Deduplication — exact (cosine >= 0.98) and semantic (LLM-assisted).
 
 Tier 1 (exact): Pure numpy cosine similarity. No LLM calls.
-Tier 2 (semantic): Pairs with 0.85-0.98 cosine sent to Claude for merge/distinct decision.
+Tier 2 (semantic): Pairs with 0.80-0.98 cosine sent to Claude for merge/distinct decision.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -56,7 +56,6 @@ def run_dedup(
 
     # Build lookup: id -> index in all_memories
     all_ids = [m["id"] for m in all_memories]
-    all_id_set = set(all_ids)
     batch_ids = set(m["id"] for m in batch)
 
     # Extract embeddings into numpy arrays
@@ -163,22 +162,6 @@ def run_dedup(
     )
 
     return result
-
-
-# ------------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------------
-
-def get_archived_ids(batch: list[dict], db: EditorDB, audit: AuditLog,
-                     llm: LLMClient | None = None) -> set[str]:
-    """Convenience: run dedup and return the set of archived IDs."""
-    result = run_dedup(batch, db, audit, llm)
-    # Re-query which batch IDs are now archived
-    archived = set()
-    for m in batch:
-        # If it was in our result, it's archived
-        pass  # The actual archived set is tracked internally
-    return archived
 
 
 def _build_embedding_matrix(memories: list[dict]) -> np.ndarray | None:
