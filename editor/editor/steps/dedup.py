@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from ..constants import EXACT_DEDUP_COSINE, LLM_DEDUP_BATCH, SEMANTIC_DEDUP_COSINE
+from ..llm import verdicts_by_pair
 
 if TYPE_CHECKING:
     from ..audit import AuditLog
@@ -56,7 +57,7 @@ def run_dedup(
 
     # Build lookup: id -> index in all_memories
     all_ids = [m["id"] for m in all_memories]
-    batch_ids = set(m["id"] for m in batch)
+    batch_ids = {m["id"] for m in batch}
 
     # Extract embeddings into numpy arrays
     all_embeddings = _build_embedding_matrix(all_memories)
@@ -133,7 +134,7 @@ def run_dedup(
         result.llm_calls += 1
 
         for pair_info, decision in zip(pairs_for_llm, decisions):
-            if decision["decision"] == "duplicate":
+            if decision.get("decision") == "duplicate":
                 # Determine canonical (LLM picks, or default to older)
                 if decision.get("canonical") == "B":
                     dupe_id, canon_id = pair_info["a_id"], pair_info["b_id"]
@@ -147,7 +148,7 @@ def run_dedup(
                     archived.add(dupe_id)
                     result.semantic_dupes_archived += 1
 
-            elif decision["decision"] == "related":
+            elif decision.get("decision") == "related":
                 rel_type = decision.get("relation", "supports")
                 weight = decision.get("weight", 0.6)
                 if not db.has_relates_to(pair_info["a_id"], pair_info["b_id"]):
@@ -240,8 +241,9 @@ def _llm_dedup_decision(llm: LLMClient, pairs: list[dict]) -> list[dict]:
     system = """You are reviewing memory pairs for deduplication in a knowledge graph.
 
 For each pair, decide:
-- "duplicate": same fact expressed differently. Pick canonical (A or B) — prefer whichever is more complete/precise.
-- "related": different but related facts. Specify relation: supports | elaborates | follows.
+- "duplicate": A and B say the same thing in different words, with no detail that differs. Pick canonical (A or B) — prefer whichever is more complete/precise.
+- "update": A and B are about the same attribute but give different values: a different city, employer, tool, count, or plan (e.g. "lives in Boston" vs "now lives in Denver"). Never a duplicate, even when one replaces the other: both are kept and a later step records which one is current.
+- "related": different but related facts, including one that implies the other. Specify relation: supports | elaborates | follows.
 - "distinct": unrelated facts, no action needed.
 
 Return a JSON array with one object per pair:
@@ -250,11 +252,9 @@ Return a JSON array with one object per pair:
     user = f"Review these {len(pairs)} memory pairs:\n{pairs_text}"
 
     try:
-        decisions = llm.ask_json(system, user)
-        if isinstance(decisions, list) and len(decisions) == len(pairs):
-            return decisions
-        # Fallback: treat all as distinct
-        return [{"pair": i + 1, "decision": "distinct"} for i in range(len(pairs))]
+        reply = llm.ask_json(system, user)
     except Exception as e:
         log.warning("LLM dedup call failed: %s", e)
-        return [{"pair": i + 1, "decision": "distinct"} for i in range(len(pairs))]
+        reply = None
+    # Missing verdicts count as distinct (no action).
+    return [d or {"decision": "distinct"} for d in verdicts_by_pair(reply, len(pairs))]

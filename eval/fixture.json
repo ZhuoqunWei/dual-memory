@@ -1,0 +1,340 @@
+{
+  "version": 1,
+  "description": "40 synthetic sessions (Jan-Sep 2026) of Writer-extracted facts about a fictional user, Sam Ortiz. Facts sharing a cluster are the same fact restated; chains are values of one attribute over time; entity 'gold' ids mark names for the same real-world entity. See eval/README.md.",
+  "entities": {
+    "User": {"type": "Person", "aliases": ["Sam", "Sam Ortiz"], "gold": "person:sam"},
+    "Sam Ortiz": {"type": "Person", "aliases": ["Sam", "User"], "gold": "person:sam"},
+    "Northwind Logistics": {"type": "Organization", "aliases": ["Northwind"], "gold": "org:northwind"},
+    "Northwind": {"type": "Organization", "aliases": ["Northwind Logistics"], "gold": "org:northwind"},
+    "Contoso": {"type": "Organization", "aliases": [], "gold": "org:contoso"},
+    "Contoso Ltd.": {"type": "Organization", "aliases": ["Contoso Limited"], "gold": "org:contoso"},
+    "Priya Nair": {"type": "Person", "aliases": ["Priya"], "gold": "person:priya"},
+    "Priya": {"type": "Person", "aliases": [], "gold": "person:priya"},
+    "Chris Lee": {"type": "Person", "aliases": ["Chris"], "gold": "person:chris-lee"},
+    "Chris Park": {"type": "Person", "aliases": ["Chris", "CP"], "gold": "person:chris-park"},
+    "Wang Wei": {"type": "Person", "aliases": ["Wei"], "gold": "person:wang-wei"},
+    "Wei Wang": {"type": "Person", "aliases": [], "gold": "person:wang-wei"},
+    "W. Wang": {"type": "Person", "aliases": ["Wang"], "gold": "person:wang-wei"},
+    "Mei Ortiz": {"type": "Person", "aliases": ["Mei"], "gold": "person:mei-ortiz"},
+    "Mei": {"type": "Person", "aliases": [], "gold": "person:mei-ortiz"},
+    "Mei Lin": {"type": "Person", "aliases": ["Mei"], "gold": "person:mei-lin"},
+    "Elena Ortiz": {"type": "Person", "aliases": ["Mom"], "gold": "person:elena"},
+    "Luis Ortiz": {"type": "Person", "aliases": ["Dad"], "gold": "person:luis"},
+    "Dev Patel": {"type": "Person", "aliases": ["Dev"], "gold": "person:dev"},
+    "Jordan Blake": {"type": "Person", "aliases": ["Jordan", "JB"], "gold": "person:jordan"},
+    "Jordan": {"type": "Place", "aliases": ["Hashemite Kingdom of Jordan"], "gold": "place:jordan"},
+    "Robert Caro": {"type": "Person", "aliases": [], "gold": "person:caro"},
+    "Seattle": {"type": "Place", "aliases": ["Seattle, WA"], "gold": "place:seattle"},
+    "Portland": {"type": "Place", "aliases": ["Portland, Oregon", "PDX"], "gold": "place:portland-or"},
+    "Portland, Maine": {"type": "Place", "aliases": ["Portland"], "gold": "place:portland-me"},
+    "Toronto": {"type": "Place", "aliases": [], "gold": "place:toronto"},
+    "Denver": {"type": "Place", "aliases": [], "gold": "place:denver"},
+    "Austin": {"type": "Place", "aliases": ["Austin, TX"], "gold": "place:austin"},
+    "Porto": {"type": "Place", "aliases": [], "gold": "place:porto"},
+    "Lisbon": {"type": "Place", "aliases": ["Lisboa"], "gold": "place:lisbon"},
+    "Osaka": {"type": "Place", "aliases": [], "gold": "place:osaka"},
+    "Tokyo": {"type": "Place", "aliases": [], "gold": "place:tokyo"},
+    "Kyoto": {"type": "Place", "aliases": [], "gold": "place:kyoto"},
+    "Petra": {"type": "Place", "aliases": [], "gold": "place:petra"},
+    "Seattle Half Marathon": {"type": "Concept", "aliases": [], "gold": "event:seattle-half"},
+    "Portland Marathon": {"type": "Concept", "aliases": [], "gold": "event:portland-marathon"},
+    "Tidepool": {"type": "Project", "aliases": ["tidepool-cli"], "gold": "project:tidepool"},
+    "tidepool-cli": {"type": "Tool", "aliases": [], "gold": "project:tidepool"},
+    "Python": {"type": "Tool", "aliases": [], "gold": "tool:python"},
+    "Rust": {"type": "Tool", "aliases": [], "gold": "tool:rust"},
+    "PostgreSQL": {"type": "Tool", "aliases": ["Postgres"], "gold": "tool:postgres"},
+    "Postgres": {"type": "Tool", "aliases": [], "gold": "tool:postgres"},
+    "NOAA": {"type": "Organization", "aliases": ["National Oceanic and Atmospheric Administration"], "gold": "org:noaa"},
+    "VS Code": {"type": "Tool", "aliases": ["Visual Studio Code"], "gold": "tool:vscode"},
+    "Neovim": {"type": "Tool", "aliases": ["nvim"], "gold": "tool:neovim"},
+    "nvim": {"type": "Tool", "aliases": [], "gold": "tool:neovim"},
+    "Kubernetes": {"type": "Tool", "aliases": ["k8s"], "gold": "tool:kubernetes"},
+    "k8s": {"type": "Tool", "aliases": [], "gold": "tool:kubernetes"},
+    "Raspberry Pi": {"type": "Tool", "aliases": [], "gold": "tool:raspberry-pi"},
+    "MacBook Pro": {"type": "Tool", "aliases": [], "gold": "tool:macbook"},
+    "Framework Laptop": {"type": "Tool", "aliases": ["Framework 13"], "gold": "tool:framework"},
+    "Fedora": {"type": "Tool", "aliases": [], "gold": "tool:fedora"},
+    "Airflow": {"type": "Tool", "aliases": ["Apache Airflow"], "gold": "tool:airflow"},
+    "dbt": {"type": "Tool", "aliases": [], "gold": "tool:dbt"},
+    "Kafka": {"type": "Tool", "aliases": ["Apache Kafka"], "gold": "tool:kafka"},
+    "Snowflake": {"type": "Tool", "aliases": [], "gold": "tool:snowflake"},
+    "GitHub": {"type": "Organization", "aliases": [], "gold": "org:github"},
+    "Duolingo": {"type": "Tool", "aliases": [], "gold": "tool:duolingo"},
+    "Japanese": {"type": "Concept", "aliases": ["日本語"], "gold": "concept:japanese"},
+    "Miso": {"type": "Concept", "aliases": [], "gold": "pet:miso"},
+    "Tofu": {"type": "Concept", "aliases": [], "gold": "pet:tofu"},
+    "Blue Heron Climbing": {"type": "Organization", "aliases": [], "gold": "org:blue-heron"},
+    "Heart Coffee": {"type": "Organization", "aliases": [], "gold": "org:heart-coffee"},
+    "The Power Broker": {"type": "Concept", "aliases": [], "gold": "book:power-broker"}
+  },
+  "sessions": [
+    {"id": "s01", "date": "2026-01-06T18:30:00Z", "channel": "discord", "summary": "Intro: work, home, answer style", "facts": [
+      {"id": "s01.1", "content": "User works as a backend engineer at Northwind Logistics", "kind": "fact", "entities": [["User", "subject"], ["Northwind Logistics", "object"]], "cluster": "job-northwind", "salience": 0.8},
+      {"id": "s01.2", "content": "User lives in Seattle", "kind": "fact", "entities": [["User", "subject"], ["Seattle", "object"]], "cluster": "lives-seattle"},
+      {"id": "s01.3", "content": "User's manager at Northwind is Priya Nair", "kind": "fact", "entities": [["User", "subject"], ["Priya Nair", "object"], ["Northwind Logistics", "context"]], "cluster": "manager-priya"},
+      {"id": "s01.4", "content": "User prefers concise, direct answers without long preambles", "kind": "preference", "entities": [["User", "subject"]], "cluster": "pref-concise", "salience": 0.8}
+    ]},
+    {"id": "s02", "date": "2026-01-10T20:00:00Z", "channel": "discord", "summary": "Food", "facts": [
+      {"id": "s02.1", "content": "User is vegetarian", "kind": "fact", "entities": [["User", "subject"]], "cluster": "diet-vegetarian"},
+      {"id": "s02.2", "content": "User is allergic to peanuts", "kind": "fact", "entities": [["User", "subject"]], "cluster": "allergy-peanuts", "salience": 0.9},
+      {"id": "s02.3", "content": "User's favorite cuisine is Sichuan food", "kind": "preference", "entities": [["User", "subject"]]}
+    ]},
+    {"id": "s03", "date": "2026-01-14T17:00:00Z", "channel": "cli", "summary": "Dev setup", "facts": [
+      {"id": "s03.1", "content": "User uses VS Code as their main code editor", "kind": "fact", "entities": [["User", "subject"], ["VS Code", "object"]], "cluster": "editor-vscode"},
+      {"id": "s03.2", "content": "User's work laptop is a 2021 MacBook Pro", "kind": "fact", "entities": [["User", "subject"], ["MacBook Pro", "object"]], "cluster": "laptop-macbook"},
+      {"id": "s03.3", "content": "User prefers dark mode in every app", "kind": "preference", "entities": [["User", "subject"]]}
+    ]},
+    {"id": "s04", "date": "2026-01-19T19:15:00Z", "channel": "discord", "summary": "Family", "facts": [
+      {"id": "s04.1", "content": "User's sister Mei Ortiz lives in Toronto", "kind": "fact", "entities": [["User", "subject"], ["Mei Ortiz", "object"], ["Toronto", "context"]], "cluster": "sister-toronto"},
+      {"id": "s04.2", "content": "Mei Ortiz works as a pediatric nurse", "kind": "fact", "entities": [["Mei Ortiz", "subject"]]},
+      {"id": "s04.3", "content": "User's mom Elena's birthday is October 3", "kind": "fact", "entities": [["User", "subject"], ["Elena Ortiz", "object"]], "cluster": "mom-birthday"},
+      {"id": "s04.4", "content": "User's dad Luis's birthday is November 12", "kind": "fact", "entities": [["User", "subject"], ["Luis Ortiz", "object"]]}
+    ]},
+    {"id": "s05", "date": "2026-01-24T16:00:00Z", "channel": "discord", "summary": "Running", "facts": [
+      {"id": "s05.1", "content": "User is training for the Seattle Half Marathon on March 22", "kind": "goal", "entities": [["User", "subject"], ["Seattle Half Marathon", "object"]]},
+      {"id": "s05.2", "content": "User runs on Tuesday and Thursday mornings before work", "kind": "fact", "entities": [["User", "subject"]], "cluster": "run-schedule"}
+    ]},
+    {"id": "s06", "date": "2026-01-30T21:00:00Z", "channel": "discord", "summary": "Work", "facts": [
+      {"id": "s06.1", "content": "Chris Lee is User's teammate on Northwind's routing service", "kind": "fact", "entities": [["Chris Lee", "subject"], ["User", "object"], ["Northwind Logistics", "context"]]},
+      {"id": "s06.2", "content": "User is migrating Northwind's routing service to Kubernetes", "kind": "event", "entities": [["User", "subject"], ["Kubernetes", "object"], ["Northwind Logistics", "context"]]},
+      {"id": "s06.3", "content": "User doesn't like meetings before 10am", "kind": "preference", "entities": [["User", "subject"]], "cluster": "pref-no-early-meetings"}
+    ]},
+    {"id": "s07", "date": "2026-02-04T02:00:00Z", "channel": "cli", "summary": "Side project kickoff", "facts": [
+      {"id": "s07.1", "content": "User started a side project called Tidepool, a command-line tool for tide forecasts", "kind": "event", "entities": [["User", "subject"], ["Tidepool", "object"]]},
+      {"id": "s07.2", "content": "Tidepool is written in Python", "kind": "fact", "entities": [["Tidepool", "subject"], ["Python", "object"]], "cluster": "tidepool-python"},
+      {"id": "s07.3", "content": "Tidepool stores tide station data in PostgreSQL", "kind": "fact", "entities": [["Tidepool", "subject"], ["PostgreSQL", "object"]], "cluster": "tidepool-postgres"}
+    ]},
+    {"id": "s08", "date": "2026-02-09T18:00:00Z", "channel": "discord", "summary": "Pets", "facts": [
+      {"id": "s08.1", "content": "User has a gray tabby cat named Miso", "kind": "fact", "entities": [["User", "subject"], ["Miso", "object"]], "cluster": "cat-miso"},
+      {"id": "s08.2", "content": "Mei Ortiz adopted a beagle named Tofu", "kind": "event", "entities": [["Mei Ortiz", "subject"], ["Tofu", "object"]]}
+    ]},
+    {"id": "s09", "date": "2026-02-15T15:00:00Z", "channel": "discord", "summary": "Learning Japanese", "facts": [
+      {"id": "s09.1", "content": "User is learning Japanese with Duolingo", "kind": "fact", "entities": [["User", "subject"], ["Japanese", "object"], ["Duolingo", "context"]]},
+      {"id": "s09.2", "content": "User has a 50-day Duolingo streak", "kind": "fact", "entities": [["User", "subject"], ["Duolingo", "object"]], "cluster": "streak-50"},
+      {"id": "s09.3", "content": "User is planning a trip to Osaka in October", "kind": "goal", "entities": [["User", "subject"], ["Osaka", "object"]], "cluster": "trip-osaka"}
+    ]},
+    {"id": "s10", "date": "2026-02-21T19:00:00Z", "channel": "discord", "summary": "Work stress", "facts": [
+      {"id": "s10.1", "content": "User is a backend engineer at Northwind", "kind": "fact", "entities": [["User", "subject"], ["Northwind", "object"]], "cluster": "job-northwind"},
+      {"id": "s10.2", "content": "User reports to Priya", "kind": "fact", "entities": [["User", "subject"], ["Priya", "object"]], "cluster": "manager-priya"},
+      {"id": "s10.3", "content": "User finds the routing migration stressful because of the on-call load", "kind": "emotion", "entities": [["User", "subject"]]}
+    ]},
+    {"id": "s11", "date": "2026-02-27T03:00:00Z", "channel": "cli", "summary": "Tidepool data", "facts": [
+      {"id": "s11.1", "content": "Tidepool pulls tide predictions from the NOAA API", "kind": "fact", "entities": [["Tidepool", "subject"], ["NOAA", "object"]]},
+      {"id": "s11.2", "content": "Tidepool keeps its station table in Postgres", "kind": "fact", "entities": [["Tidepool", "subject"], ["Postgres", "object"]], "cluster": "tidepool-postgres"},
+      {"id": "s11.3", "content": "User doesn't eat meat", "kind": "fact", "entities": [["User", "subject"]], "cluster": "diet-vegetarian"}
+    ]},
+    {"id": "s12", "date": "2026-03-23T20:00:00Z", "channel": "discord", "summary": "Race day", "facts": [
+      {"id": "s12.1", "content": "User finished the Seattle Half Marathon in 1:52:10", "kind": "event", "entities": [["User", "subject"], ["Seattle Half Marathon", "object"]]},
+      {"id": "s12.2", "content": "User has a peanut allergy", "kind": "fact", "entities": [["User", "subject"]], "cluster": "allergy-peanuts"},
+      {"id": "s12.3", "content": "User wants to run the Portland Marathon in October", "kind": "goal", "entities": [["User", "subject"], ["Portland Marathon", "object"]]}
+    ]},
+    {"id": "s13", "date": "2026-03-29T17:30:00Z", "channel": "discord", "summary": "Friends", "facts": [
+      {"id": "s13.1", "content": "User's college friend Jordan Blake lives in Denver", "kind": "fact", "entities": [["User", "subject"], ["Jordan Blake", "object"], ["Denver", "context"]], "cluster": "jordan-denver"},
+      {"id": "s13.2", "content": "Jordan Blake works as a wildlife photographer", "kind": "fact", "entities": [["Jordan Blake", "subject"]]}
+    ]},
+    {"id": "s14", "date": "2026-04-03T22:00:00Z", "channel": "discord", "summary": "Job search", "facts": [
+      {"id": "s14.1", "content": "User is interviewing for a data engineering role at Contoso", "kind": "event", "entities": [["User", "subject"], ["Contoso", "object"]]},
+      {"id": "s14.2", "content": "User feels burned out at Northwind", "kind": "emotion", "entities": [["User", "subject"], ["Northwind Logistics", "context"]]}
+    ]},
+    {"id": "s15", "date": "2026-04-10T04:00:00Z", "channel": "cli", "summary": "Editor", "facts": [
+      {"id": "s15.1", "content": "User now uses Neovim instead of VS Code", "kind": "fact", "entities": [["User", "subject"], ["Neovim", "object"], ["VS Code", "context"]], "cluster": "editor-neovim"},
+      {"id": "s15.2", "content": "User configures Neovim with lazy.nvim and a Lua config", "kind": "fact", "entities": [["User", "subject"], ["Neovim", "object"]]}
+    ]},
+    {"id": "s16", "date": "2026-04-18T14:00:00Z", "channel": "discord", "summary": "Duolingo", "facts": [
+      {"id": "s16.1", "content": "User's Duolingo streak reached 120 days", "kind": "fact", "entities": [["User", "subject"], ["Duolingo", "object"]], "cluster": "streak-120"},
+      {"id": "s16.2", "content": "User can now read hiragana and katakana", "kind": "fact", "entities": [["User", "subject"], ["Japanese", "object"]]}
+    ]},
+    {"id": "s17", "date": "2026-04-26T23:00:00Z", "channel": "discord", "summary": "Offer", "facts": [
+      {"id": "s17.1", "content": "User accepted a data engineer offer from Contoso Ltd.", "kind": "decision", "entities": [["User", "subject"], ["Contoso Ltd.", "object"]], "cluster": "offer-contoso", "salience": 0.9},
+      {"id": "s17.2", "content": "User's last day at Northwind is May 8", "kind": "event", "entities": [["User", "subject"], ["Northwind Logistics", "object"]]},
+      {"id": "s17.3", "content": "User will relocate to Portland for the Contoso job", "kind": "goal", "entities": [["User", "subject"], ["Portland", "object"], ["Contoso", "context"]]}
+    ]},
+    {"id": "s18", "date": "2026-05-02T18:00:00Z", "channel": "discord", "summary": "Offsite planning and Tidepool", "facts": [
+      {"id": "s18.1", "content": "Contoso's data team offsite will be held in Porto in June", "kind": "event", "entities": [["Contoso", "subject"], ["Porto", "object"]], "cluster": "offsite-porto"},
+      {"id": "s18.2", "content": "User is rewriting Tidepool in Rust for faster startup", "kind": "event", "entities": [["User", "subject"], ["Tidepool", "object"], ["Rust", "object"]], "cluster": "tidepool-rewrite"}
+    ]},
+    {"id": "s19", "date": "2026-05-09T19:00:00Z", "channel": "discord", "summary": "Languages and family", "facts": [
+      {"id": "s19.1", "content": "User likes Python for data work but prefers Rust for command-line tools", "kind": "preference", "entities": [["User", "subject"], ["Python", "object"], ["Rust", "object"]]},
+      {"id": "s19.2", "content": "Mei Ortiz is married to Dev Patel", "kind": "fact", "entities": [["Mei Ortiz", "subject"], ["Dev Patel", "object"]]}
+    ]},
+    {"id": "s20", "date": "2026-05-19T01:00:00Z", "channel": "discord", "summary": "First week at Contoso", "facts": [
+      {"id": "s20.1", "content": "User now works at Contoso as a data engineer", "kind": "fact", "entities": [["User", "subject"], ["Contoso", "object"]], "cluster": "job-contoso", "salience": 0.8},
+      {"id": "s20.2", "content": "User's manager at Contoso is Wang Wei", "kind": "fact", "entities": [["User", "subject"], ["Wang Wei", "object"], ["Contoso", "context"]], "cluster": "manager-wang"},
+      {"id": "s20.3", "content": "Contoso's data platform uses Airflow and dbt", "kind": "fact", "entities": [["Contoso", "subject"], ["Airflow", "object"], ["dbt", "object"]]},
+      {"id": "s20.4", "content": "Mei Lin is a data analyst on User's team at Contoso", "kind": "fact", "entities": [["Mei Lin", "subject"], ["User", "object"], ["Contoso", "context"]]}
+    ]},
+    {"id": "s21", "date": "2026-05-24T20:00:00Z", "channel": "discord", "summary": "Offsite update", "facts": [
+      {"id": "s21.1", "content": "The Contoso offsite was moved from Porto to Lisbon", "kind": "event", "entities": [["Contoso", "subject"], ["Lisbon", "object"], ["Porto", "context"]], "cluster": "offsite-lisbon"},
+      {"id": "s21.2", "content": "User's manager Wei Wang holds weekly 1:1s on Wednesdays", "kind": "fact", "entities": [["User", "subject"], ["Wei Wang", "object"]]}
+    ]},
+    {"id": "s22", "date": "2026-06-01T21:00:00Z", "channel": "discord", "summary": "Moved", "facts": [
+      {"id": "s22.1", "content": "User now lives in Portland, Oregon", "kind": "fact", "entities": [["User", "subject"], ["Portland", "object"]], "cluster": "lives-portland", "salience": 0.8},
+      {"id": "s22.2", "content": "User's new apartment is in Portland's Pearl District", "kind": "fact", "entities": [["User", "subject"], ["Portland", "object"]]},
+      {"id": "s22.3", "content": "User grew up in Seattle", "kind": "fact", "entities": [["User", "subject"], ["Seattle", "object"]]}
+    ]},
+    {"id": "s23", "date": "2026-06-08T03:00:00Z", "channel": "cli", "summary": "Tidepool in Rust", "facts": [
+      {"id": "s23.1", "content": "Tidepool is now written in Rust", "kind": "fact", "entities": [["Tidepool", "subject"], ["Rust", "object"]], "cluster": "tidepool-rust"},
+      {"id": "s23.2", "content": "tidepool-cli v0.2 added offline caching of tide tables", "kind": "event", "entities": [["tidepool-cli", "subject"]]}
+    ]},
+    {"id": "s24", "date": "2026-06-14T18:00:00Z", "channel": "discord", "summary": "Climbing", "facts": [
+      {"id": "s24.1", "content": "User started bouldering at Blue Heron Climbing in Portland", "kind": "event", "entities": [["User", "subject"], ["Blue Heron Climbing", "object"], ["Portland", "context"]]},
+      {"id": "s24.2", "content": "Chris Park is User's climbing partner", "kind": "fact", "entities": [["Chris Park", "subject"], ["User", "object"]]},
+      {"id": "s24.3", "content": "User stopped running because of a knee injury", "kind": "event", "entities": [["User", "subject"]], "cluster": "run-stopped"}
+    ]},
+    {"id": "s25", "date": "2026-06-20T17:00:00Z", "channel": "discord", "summary": "Laptop", "facts": [
+      {"id": "s25.1", "content": "User's work laptop is now a Framework Laptop 13 running Fedora", "kind": "fact", "entities": [["User", "subject"], ["Framework Laptop", "object"], ["Fedora", "context"]], "cluster": "laptop-framework"},
+      {"id": "s25.2", "content": "User prefers Linux for development", "kind": "preference", "entities": [["User", "subject"]]}
+    ]},
+    {"id": "s26", "date": "2026-06-27T19:00:00Z", "channel": "discord", "summary": "Offsite", "facts": [
+      {"id": "s26.1", "content": "User attended the Contoso offsite in Lisbon", "kind": "event", "entities": [["User", "subject"], ["Lisbon", "object"], ["Contoso", "context"]]},
+      {"id": "s26.2", "content": "Mei Lin presented the churn dashboard at the offsite", "kind": "event", "entities": [["Mei Lin", "subject"]]}
+    ]},
+    {"id": "s27", "date": "2026-07-03T20:00:00Z", "channel": "discord", "summary": "Diet change", "facts": [
+      {"id": "s27.1", "content": "User is now pescatarian and has started eating fish", "kind": "fact", "entities": [["User", "subject"]], "cluster": "diet-pescatarian"},
+      {"id": "s27.2", "content": "User is allergic to peanuts", "kind": "fact", "entities": [["User", "subject"]], "cluster": "allergy-peanuts", "salience": 0.9}
+    ]},
+    {"id": "s28", "date": "2026-07-10T16:00:00Z", "channel": "discord", "summary": "Japan", "facts": [
+      {"id": "s28.1", "content": "User's Duolingo streak is at 200 days", "kind": "fact", "entities": [["User", "subject"], ["Duolingo", "object"]], "cluster": "streak-200"},
+      {"id": "s28.2", "content": "User changed the Japan trip from Osaka to Tokyo and Kyoto", "kind": "decision", "entities": [["User", "subject"], ["Tokyo", "object"], ["Kyoto", "object"], ["Osaka", "context"]], "cluster": "trip-tokyo"}
+    ]},
+    {"id": "s29", "date": "2026-07-16T18:00:00Z", "channel": "discord", "summary": "Jordan", "facts": [
+      {"id": "s29.1", "content": "Jordan Blake moved from Denver to Austin", "kind": "event", "entities": [["Jordan Blake", "subject"], ["Austin", "object"], ["Denver", "context"]], "cluster": "jordan-austin"},
+      {"id": "s29.2", "content": "User wants to visit Petra in Jordan next spring", "kind": "goal", "entities": [["User", "subject"], ["Petra", "object"], ["Jordan", "context"]]}
+    ]},
+    {"id": "s30", "date": "2026-07-22T19:00:00Z", "channel": "discord", "summary": "Family", "facts": [
+      {"id": "s30.1", "content": "User's sister Mei still lives in Toronto", "kind": "fact", "entities": [["User", "subject"], ["Mei", "object"], ["Toronto", "context"]], "cluster": "sister-toronto"},
+      {"id": "s30.2", "content": "User's mother Elena celebrates her birthday on October 3", "kind": "fact", "entities": [["User", "subject"], ["Elena Ortiz", "object"]], "cluster": "mom-birthday"}
+    ]},
+    {"id": "s31", "date": "2026-07-29T22:00:00Z", "channel": "discord", "summary": "Work", "facts": [
+      {"id": "s31.1", "content": "User is building a Kafka-to-Snowflake ingestion pipeline at Contoso", "kind": "event", "entities": [["User", "subject"], ["Kafka", "object"], ["Snowflake", "object"], ["Contoso", "context"]]},
+      {"id": "s31.2", "content": "Wang Wei asked User to lead the data quality initiative", "kind": "event", "entities": [["Wang Wei", "subject"], ["User", "object"]]},
+      {"id": "s31.3", "content": "User works as a data engineer at Contoso", "kind": "fact", "entities": [["User", "subject"], ["Contoso", "object"]], "cluster": "job-contoso"},
+      {"id": "s31.4", "content": "Sam Ortiz gave a lightning talk on dbt testing at Contoso", "kind": "event", "entities": [["Sam Ortiz", "subject"], ["dbt", "object"], ["Contoso", "context"]]}
+    ]},
+    {"id": "s32", "date": "2026-08-04T04:00:00Z", "channel": "cli", "summary": "Tooling", "facts": [
+      {"id": "s32.1", "content": "User uses Neovim as their main editor", "kind": "fact", "entities": [["User", "subject"], ["nvim", "object"]], "cluster": "editor-neovim"},
+      {"id": "s32.2", "content": "User runs a home Kubernetes cluster on three Raspberry Pis", "kind": "fact", "entities": [["User", "subject"], ["k8s", "object"], ["Raspberry Pi", "context"]]}
+    ]},
+    {"id": "s33", "date": "2026-08-10T18:00:00Z", "channel": "discord", "summary": "Pets", "facts": [
+      {"id": "s33.1", "content": "User has a cat called Miso", "kind": "fact", "entities": [["User", "subject"], ["Miso", "object"]], "cluster": "cat-miso"},
+      {"id": "s33.2", "content": "Miso had a dental cleaning at the vet", "kind": "event", "entities": [["Miso", "subject"]]}
+    ]},
+    {"id": "s34", "date": "2026-08-16T17:00:00Z", "channel": "discord", "summary": "Preferences", "facts": [
+      {"id": "s34.1", "content": "User wants short, direct responses", "kind": "preference", "entities": [["User", "subject"]], "cluster": "pref-concise"},
+      {"id": "s34.2", "content": "User dislikes early morning meetings and blocks their calendar until 10am", "kind": "preference", "entities": [["User", "subject"]], "cluster": "pref-no-early-meetings"}
+    ]},
+    {"id": "s35", "date": "2026-08-22T20:00:00Z", "channel": "discord", "summary": "Portland life", "facts": [
+      {"id": "s35.1", "content": "User's favorite coffee shop in Portland is Heart Coffee", "kind": "preference", "entities": [["User", "subject"], ["Heart Coffee", "object"], ["Portland", "context"]]},
+      {"id": "s35.2", "content": "User lives in Portland", "kind": "fact", "entities": [["User", "subject"], ["Portland", "object"]], "cluster": "lives-portland"},
+      {"id": "s35.3", "content": "Jordan Blake is getting married in Portland, Maine in September", "kind": "event", "entities": [["Jordan Blake", "subject"], ["Portland, Maine", "object"]]}
+    ]},
+    {"id": "s36", "date": "2026-08-28T21:00:00Z", "channel": "discord", "summary": "Work", "facts": [
+      {"id": "s36.1", "content": "User's manager is Wei Wang", "kind": "fact", "entities": [["User", "subject"], ["Wei Wang", "object"]], "cluster": "manager-wang"},
+      {"id": "s36.2", "content": "W. Wang approved User's budget for data quality tooling", "kind": "event", "entities": [["W. Wang", "subject"], ["User", "object"]]}
+    ]},
+    {"id": "s37", "date": "2026-09-02T19:00:00Z", "channel": "discord", "summary": "Trip booked", "facts": [
+      {"id": "s37.1", "content": "User booked flights to Tokyo for October 12", "kind": "event", "entities": [["User", "subject"], ["Tokyo", "object"]]},
+      {"id": "s37.2", "content": "Chris Park is joining User on the Japan trip", "kind": "fact", "entities": [["Chris Park", "subject"], ["User", "object"]]}
+    ]},
+    {"id": "s38", "date": "2026-09-08T18:00:00Z", "channel": "discord", "summary": "Health and diet", "facts": [
+      {"id": "s38.1", "content": "User eats fish but no other meat", "kind": "fact", "entities": [["User", "subject"]], "cluster": "diet-pescatarian"},
+      {"id": "s38.2", "content": "User's knee has recovered and they run once a week again", "kind": "fact", "entities": [["User", "subject"]], "cluster": "run-again"}
+    ]},
+    {"id": "s39", "date": "2026-09-12T03:00:00Z", "channel": "cli", "summary": "Tidepool", "facts": [
+      {"id": "s39.1", "content": "Tidepool has 40 stars on GitHub", "kind": "fact", "entities": [["Tidepool", "subject"], ["GitHub", "context"]]},
+      {"id": "s39.2", "content": "Tidepool's codebase is Rust", "kind": "fact", "entities": [["Tidepool", "subject"], ["Rust", "object"]], "cluster": "tidepool-rust"},
+      {"id": "s39.3", "content": "User plans to add a web dashboard to Tidepool", "kind": "goal", "entities": [["User", "subject"], ["Tidepool", "object"]]}
+    ]},
+    {"id": "s40", "date": "2026-09-15T20:00:00Z", "channel": "discord", "summary": "Misc", "facts": [
+      {"id": "s40.1", "content": "User is reading The Power Broker by Robert Caro", "kind": "fact", "entities": [["User", "subject"], ["The Power Broker", "object"], ["Robert Caro", "context"]]},
+      {"id": "s40.2", "content": "User's sister Mei is visiting Portland in November", "kind": "event", "entities": [["Mei Ortiz", "subject"], ["Portland", "object"]]},
+      {"id": "s40.3", "content": "Chris Lee left Northwind to join a startup", "kind": "event", "entities": [["Chris Lee", "subject"], ["Northwind Logistics", "context"]]}
+    ]}
+  ],
+  "chains": [
+    {"id": "employer", "sequence": ["job-northwind", "job-contoso"],
+     "older": ["s06.1", "s06.2", "s10.3", "s14.2", "manager-priya"],
+     "newer": ["offer-contoso", "s17.2", "s17.3", "s20.4", "s26.1", "s31.1", "s31.2", "s31.4", "manager-wang", "s21.2", "s36.2"]},
+    {"id": "manager", "sequence": ["manager-priya", "manager-wang"],
+     "older": ["job-northwind"],
+     "newer": ["s21.2", "s31.2", "s36.2", "job-contoso", "offer-contoso", "s17.2"]},
+    {"id": "home", "sequence": ["lives-seattle", "lives-portland"],
+     "newer": ["s17.3", "s22.2", "s24.1", "s35.1"]},
+    {"id": "tidepool-language", "sequence": ["tidepool-python", "tidepool-rust"],
+     "newer": ["tidepool-rewrite"]},
+    {"id": "editor", "sequence": ["editor-vscode", "editor-neovim"], "newer": ["s15.2"]},
+    {"id": "diet", "sequence": ["diet-vegetarian", "diet-pescatarian"]},
+    {"id": "laptop", "sequence": ["laptop-macbook", "laptop-framework"], "newer": ["s25.2"]},
+    {"id": "duolingo-streak", "sequence": ["streak-50", "streak-120", "streak-200"]},
+    {"id": "jordan-home", "sequence": ["jordan-denver", "jordan-austin"]},
+    {"id": "offsite-location", "sequence": ["offsite-porto", "offsite-lisbon"], "newer": ["s26.1"]},
+    {"id": "japan-trip", "sequence": ["trip-osaka", "trip-tokyo"], "newer": ["s37.1"]},
+    {"id": "running", "sequence": ["run-schedule", "run-stopped", "run-again"]},
+    {"id": "chris-lee-team", "sequence": ["s06.1", "s40.3"]}
+  ],
+  "ignore_pairs": [
+    ["s05.1", "s12.1"],
+    ["s05.1", "run-stopped"],
+    ["s05.1", "run-again"],
+    ["s12.3", "run-stopped"],
+    ["s14.1", "job-northwind"],
+    ["s14.1", "job-contoso"],
+    ["s14.1", "offer-contoso"],
+    ["s14.1", "manager-priya"],
+    ["tidepool-rewrite", "tidepool-rust"],
+    ["s17.3", "lives-portland"],
+    ["s17.3", "s14.1"]
+  ],
+  "questions": [
+    {"id": "q01", "type": "current", "text": "Where does the user work now?", "answer": [["job-contoso"]], "stale": ["job-northwind"]},
+    {"id": "q02", "type": "current", "text": "What city does the user live in?", "answer": [["lives-portland"]], "stale": ["lives-seattle"]},
+    {"id": "q03", "type": "current", "text": "Who is the user's manager?", "answer": [["manager-wang"]], "stale": ["manager-priya"]},
+    {"id": "q04", "type": "current", "text": "What programming language is Tidepool written in?", "answer": [["tidepool-rust"]], "stale": ["tidepool-python"]},
+    {"id": "q05", "type": "current", "text": "Which code editor does the user use?", "answer": [["editor-neovim"]], "stale": ["editor-vscode"]},
+    {"id": "q06", "type": "current", "text": "Is the user vegetarian?", "answer": [["diet-pescatarian"]], "stale": ["diet-vegetarian"]},
+    {"id": "q07", "type": "current", "text": "What laptop does the user work on?", "answer": [["laptop-framework"]], "stale": ["laptop-macbook"]},
+    {"id": "q08", "type": "current", "text": "How long is the user's Duolingo streak?", "answer": [["streak-200"]], "stale": ["streak-50", "streak-120"]},
+    {"id": "q09", "type": "current", "text": "Where does Jordan Blake live?", "answer": [["jordan-austin"]], "stale": ["jordan-denver"]},
+    {"id": "q10", "type": "current", "text": "Where is the Contoso team offsite being held?", "answer": [["offsite-lisbon", "s26.1"]], "stale": ["offsite-porto"]},
+    {"id": "q11", "type": "current", "text": "Which cities is the user visiting in Japan?", "answer": [["trip-tokyo", "s37.1"]], "stale": ["trip-osaka"]},
+    {"id": "q12", "type": "current", "text": "Does the user still go running?", "answer": [["run-again"]], "stale": ["run-schedule", "run-stopped"]},
+    {"id": "q13", "type": "current", "text": "What is the user's current job title?", "answer": [["job-contoso"]], "stale": ["job-northwind"]},
+    {"id": "q14", "type": "current", "text": "What does the user eat these days?", "answer": [["diet-pescatarian"]], "stale": ["diet-vegetarian"]},
+    {"id": "q15", "type": "current", "text": "Which company employs the user?", "answer": [["job-contoso"]], "stale": ["job-northwind"]},
+    {"id": "q16", "type": "history", "text": "Where did the user work before Contoso?", "answer": [["job-northwind"]]},
+    {"id": "q17", "type": "history", "text": "Who was the user's manager at Northwind?", "answer": [["manager-priya"]]},
+    {"id": "q18", "type": "history", "text": "What language was Tidepool originally written in?", "answer": [["tidepool-python"]]},
+    {"id": "q19", "type": "history", "text": "Which editor did the user use before switching to Neovim?", "answer": [["editor-vscode", "editor-neovim"]]},
+    {"id": "q20", "type": "history", "text": "Where did Jordan Blake live before Austin?", "answer": [["jordan-denver", "jordan-austin"]]},
+    {"id": "q21", "type": "history", "text": "Which city did the user live in before moving?", "answer": [["lives-seattle"]]},
+    {"id": "q22", "type": "history", "text": "Why did the user stop running?", "answer": [["run-stopped"]]},
+    {"id": "q23", "type": "stable", "text": "What is the user allergic to?", "answer": [["allergy-peanuts"]]},
+    {"id": "q24", "type": "stable", "text": "Where does the user's sister live?", "answer": [["sister-toronto"]]},
+    {"id": "q25", "type": "stable", "text": "When is the user's mom's birthday?", "answer": [["mom-birthday"]]},
+    {"id": "q26", "type": "stable", "text": "When is the user's dad's birthday?", "answer": [["s04.4"]]},
+    {"id": "q27", "type": "stable", "text": "What is the name of the user's cat?", "answer": [["cat-miso"]]},
+    {"id": "q28", "type": "stable", "text": "What database does Tidepool use?", "answer": [["tidepool-postgres"]]},
+    {"id": "q29", "type": "stable", "text": "Where does Tidepool get its tide data?", "answer": [["s11.1"]]},
+    {"id": "q30", "type": "stable", "text": "How does the user like answers to be written?", "answer": [["pref-concise"]]},
+    {"id": "q31", "type": "stable", "text": "When should meetings with the user not be scheduled?", "answer": [["pref-no-early-meetings"]]},
+    {"id": "q32", "type": "stable", "text": "What does Mei Ortiz do for work?", "answer": [["s04.2"]]},
+    {"id": "q33", "type": "stable", "text": "Who is Chris Lee?", "answer": [["s06.1", "s40.3"]]},
+    {"id": "q34", "type": "stable", "text": "Who does the user go climbing with?", "answer": [["s24.2"]]},
+    {"id": "q35", "type": "stable", "text": "Where does the user go bouldering?", "answer": [["s24.1"]]},
+    {"id": "q36", "type": "stable", "text": "What is the user's favorite coffee shop?", "answer": [["s35.1"]]},
+    {"id": "q37", "type": "stable", "text": "What tools does Contoso's data platform use?", "answer": [["s20.3"]]},
+    {"id": "q38", "type": "stable", "text": "What pipeline is the user building at work?", "answer": [["s31.1"]]},
+    {"id": "q39", "type": "stable", "text": "What was the user's half marathon finish time?", "answer": [["s12.1"]]},
+    {"id": "q40", "type": "stable", "text": "How does the user feel about Python versus Rust?", "answer": [["s19.1"]]},
+    {"id": "q41", "type": "stable", "text": "Which Portland neighborhood does the user live in?", "answer": [["s22.2"]]},
+    {"id": "q42", "type": "stable", "text": "Where is Jordan Blake's wedding?", "answer": [["s35.3"]]},
+    {"id": "q43", "type": "stable", "text": "What book is the user reading?", "answer": [["s40.1"]]},
+    {"id": "q44", "type": "stable", "text": "What is Mei Lin's role?", "answer": [["s20.4"]]},
+    {"id": "q45", "type": "stable", "text": "What initiative did the user's manager ask them to lead?", "answer": [["s31.2"]]},
+    {"id": "q46", "type": "multi", "text": "What do we know about the user's sister Mei?", "answer": [["sister-toronto"], ["s04.2"], ["s19.2"], ["s40.2"]]},
+    {"id": "q47", "type": "multi", "text": "Tell me about the user's side project Tidepool.", "answer": [["s07.1"], ["tidepool-rust", "tidepool-rewrite"], ["tidepool-postgres"], ["s11.1"]]},
+    {"id": "q48", "type": "multi", "text": "How did the user's job change happen?", "answer": [["job-contoso"], ["offer-contoso"], ["s14.1"], ["s17.2"]]},
+    {"id": "q49", "type": "multi", "text": "How is the user's Japanese study going?", "answer": [["s09.1"], ["s16.2"], ["streak-200"]]},
+    {"id": "q50", "type": "multi", "text": "What are the user's food restrictions?", "answer": [["allergy-peanuts"], ["diet-pescatarian"]]}
+  ]
+}

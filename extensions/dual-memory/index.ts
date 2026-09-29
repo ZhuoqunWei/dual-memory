@@ -35,7 +35,15 @@ const dualMemoryPlugin = {
     // Initialization
     // ========================================================================
 
-    const cfg = parseConfig(api.pluginConfig);
+    let cfg: ReturnType<typeof parseConfig>;
+    try {
+      cfg = parseConfig(api.pluginConfig);
+    } catch (err) {
+      // The gateway service sends stderr to /dev/null, so a thrown config
+      // error (e.g. an unset ${VOYAGE_API_KEY}) would vanish; log it first.
+      api.logger.error(`dual-memory: not loaded: ${String(err)}`);
+      throw err;
+    }
     const vectorDims = vectorDimsForModel(cfg.embedding.model);
     const db = new Neo4jClient(cfg.neo4j.uri, cfg.neo4j.user, cfg.neo4j.password, vectorDims);
     const embeddings = new Embeddings(
@@ -101,6 +109,7 @@ const dualMemoryPlugin = {
 
           // Create session node
           const sessionNode = await db.createSession({
+            key: ctx.sessionId ?? ctx.sessionKey,
             date: new Date().toISOString(),
             summary: sessionSummary || "Conversation session",
             messageCount: event.messages.length,
@@ -113,7 +122,7 @@ const dualMemoryPlugin = {
           const factEmbeddings = await embeddings.embedBatch(factTexts);
 
           // Write to Neo4j
-          const memoryIds = await db.writeFacts(
+          const { memoryIds } = await db.writeFacts(
             facts,
             sessionNode.id,
             factEmbeddings,

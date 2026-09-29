@@ -14,6 +14,17 @@ FOR (e:Entity) REQUIRE e.id IS UNIQUE;
 CREATE CONSTRAINT session_id IF NOT EXISTS
 FOR (s:Session) REQUIRE s.id IS UNIQUE;
 
+// OpenClaw's session id: repeated agent_end calls reuse one Session
+CREATE CONSTRAINT session_key IF NOT EXISTS
+FOR (s:Session) REQUIRE s.key IS UNIQUE;
+
+// sha256(session, normalized fact): rerunning the Writer writes no copies
+CREATE CONSTRAINT memory_write_key IF NOT EXISTS
+FOR (m:Memory) REQUIRE m.writeKey IS UNIQUE;
+
+CREATE CONSTRAINT editorrun_id IF NOT EXISTS
+FOR (r:EditorRun) REQUIRE r.id IS UNIQUE;
+
 CREATE CONSTRAINT editaction_id IF NOT EXISTS
 FOR (a:EditAction) REQUIRE a.id IS UNIQUE;
 
@@ -45,6 +56,10 @@ FOR (e:Entity) ON (e.normalizedType);
 
 CREATE INDEX session_date IF NOT EXISTS
 FOR (s:Session) ON (s.date);
+
+// Rollback reads a run's EditActions
+CREATE INDEX editaction_run IF NOT EXISTS
+FOR (a:EditAction) ON (a.runId);
 
 // === Fulltext index for entity resolution ===
 

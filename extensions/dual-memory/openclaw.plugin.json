@@ -41,8 +41,8 @@
     },
     "extraction.model": {
       "label": "Extraction Model",
-      "placeholder": "claude-sonnet-4-20250514",
-      "help": "Model for fact extraction (default: claude-sonnet-4-20250514 for anthropic, gpt-4o-mini for openai)"
+      "placeholder": "claude-sonnet-5",
+      "help": "Model for fact extraction (default: claude-sonnet-5 for anthropic, gpt-4o-mini for openai)"
     },
     "autoCapture": {
       "label": "Auto-Capture",

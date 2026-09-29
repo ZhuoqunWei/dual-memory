@@ -4,9 +4,10 @@ node_modules/
 venv/
 .cache/
 
-# Environment
+# Environment (any .env variant, e.g. backups, except the examples)
 .env
-.env.local
+.env.*
+!.env.example
 
 # Neo4j data
 neo4j-data/
@@ -50,3 +51,10 @@ neo4j_data/
 .claude/
 .codex/
 .agents/
+
+# Eval report written by CI
+eval/results/ci.json
+
+# LoCoMo: the dataset (not ours to redistribute) and everything derived from it
+eval/locomo/data/
+eval/locomo/cache/

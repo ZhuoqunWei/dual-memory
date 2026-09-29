@@ -1,0 +1,19 @@
+{
+  "_comment": "Floors (min) and ceilings (max) checked by `python -m editor.evaluation --check`. Replays reproduce the recorded run exactly; these guard re-recordings, where LLM verdicts vary a little run to run.",
+  "min": {
+    "dedup.precision": 0.8,
+    "dedup.recall": 0.9,
+    "conflicts.precision": 0.75,
+    "conflicts.recall": 0.85,
+    "conflicts.state.outdated_superseded": 0.85,
+    "entities.precision": 0.85,
+    "entities.recall": 0.7,
+    "retrieval.after_editor.recall@5": 0.8
+  },
+  "max": {
+    "conflicts.state.current_wrongly_superseded": 0.1,
+    "entities.wrong_merge_rate": 0.1,
+    "retrieval.after_editor.stale_first_rate": 0.1,
+    "cost.total.cost_usd": 0.5
+  }
+}

@@ -139,7 +139,7 @@ def _find_clusters(
 
     # Sort potential seeds by average similarity (most connected first)
     avg_sim = np.mean(sim, axis=1)
-    seed_order = np.argsort(-avg_sim)
+    seed_order = np.argsort(-avg_sim, kind="stable")
 
     for seed in seed_order:
         if int(seed) in used:

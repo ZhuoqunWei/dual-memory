@@ -27,3 +27,8 @@ dev = [
 
 [project.scripts]
 editor = "editor.main:main"
+
+[tool.ruff.lint]
+# Pinned so a ruff release that widens its default rules can't change what CI
+# enforces (0.16 turned on BLE, ISC, FURB, and others by default).
+select = ["E4", "E7", "E9", "F", "I"]

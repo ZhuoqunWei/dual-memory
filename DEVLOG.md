@@ -335,3 +335,65 @@ Writer prompt said "prefer over-extraction to under-extraction" → ~8 facts/ses
 - Archived 9 meta-observation memories (system documenting its own schema)
 
 ---
+
+## 2026-09-28 — Eval Harness, Supersession, Entity Resolution, Idempotency, Rollback
+
+### Why
+Every number the project had was a count ("73% archived as duplicates"), not a correctness claim. Built a gold-labelled harness first, then measured each change against it. Full results: `eval/results/`, summary in the README.
+
+### Harness (`editor/editor/evaluation/`, `eval/`)
+- 40 synthetic sessions, 102 facts (85 unique), 13 update chains, 64 entity names for 53 real entities, 50 retrieval questions. Facts go in through the real TypeScript `writeFacts` and questions through the real hybrid `retrieve()` via `eval-bridge.ts`, so it measures the shipped code, not a Python copy.
+- LLM replies and embeddings are recorded to `eval/cache/` keyed by a hash of the full request. CI replays against a Neo4j service container with no keys; a changed prompt fails as a cache miss. The miss is a `BaseException` on purpose: steps catch `Exception`, which would have turned a stale cache into a silently skipped step.
+- Prompts had to be byte-stable across runs, which meant `ORDER BY` on every Editor read that feeds a prompt (several ordered by random UUIDs or not at all).
+- The harness wipes its database, so it refuses any non-empty database without its `:EvalSentinel` node, and reads its connection only from `EVAL_NEO4J_*`, never `editor/.env` (which points at the real graph).
+
+### What the harness found
+- **Neo4j vector scores are `(1 + cos) / 2`, not cosine.** Both `db.index.vector.queryNodes` and `vector.similarity.cosine()`. The Writer's pre-write gate at "0.92" was really cosine 0.84, and it silently dropped updates: "User now lives in Portland, Oregon" never reached the graph because it was close to "User lives in Seattle". 22 of 102 facts skipped at 54.8% dedup precision. Hybrid retrieval also ranked vector seeds (normalized score) against graph expansions (raw cosine). No cosine threshold separates restatements from updates (updates up to 0.945, real paraphrases down to 0.88), so the gate is now same-session only, where the re-extraction duplicates come from, and cross-session dedup is the Editor's LLM tier.
+- **Relationships step was 95% of Editor spend** (227 of 270 LLM calls, $1.03 of $1.09 per run) because the user-as-hub entity links nearly every pair. Pairs now come from non-hub entities only (same 30-mention cut-off retrieval uses), each asked once. $1.09 → $0.12 with every quality metric unchanged.
+- **Dedup's LLM calls updates "duplicates"** ("B reflects updated fact about Tidepool's language, superseding A") and archives the history away before supersession sees it. Added an explicit `update` verdict and a stricter duplicate definition.
+- **Models sometimes wrap the verdict list** as `{"results": [...]}`; dedup then treated the whole batch as distinct and zipped verdicts to pairs by position. Now matched by pair number (`verdicts_by_pair`).
+- **`merge_entities` dropped the target's aliases** (`[a IN tgt.aliases + src.aliases WHERE NOT a IN tgt.aliases]` keeps only the new ones) and CREATEd duplicate MENTIONS.
+- **Confidence decay ran on every run**, and `--once --all` is one run per 50-memory batch, so a nightly run decayed several times.
+- **`--all --step X` looped forever** (a single step never marks the batch reviewed). Now rejected.
+- **`claude-sonnet-4-20250514` is retired** (404). Default is now `claude-sonnet-5`, which rejects `temperature` and thinks by default; clients strip sampling params and run adaptive thinking at low effort.
+
+### Temporal supersession
+`validFrom` on write; the contradictions step asks about each batch memory's nearest still-valid neighbours sharing an entity and labels pairs update/compatible (naming the attribute first; asking for it cut wrong edges from 7 to 3). Newer supersedes older: `SUPERSEDES` edge plus `validTo`, no confidence penalty. Retrieval weights superseded memories ×0.7 and marks them "[outdated since …]" in context. The weight is a real trade: 0.5 buried history questions, 0.8 let stale facts rank first again.
+
+### Three-tier entity resolution
+Name tier (normalized equality or mutual aliases) → embedding tier → LLM. The plan said "name plus context"; measured on the fixture, adding context made names from the same memory look identical (Framework Laptop / Fedora 0.967, above every true alias pair), so the embedding is name + type + aliases and context goes to the LLM. Two more guards from the data: names mentioned in one memory are never merged, and LLM "different" verdicts are cannot-link constraints (a bare "Mei" matched to both "Mei Ortiz" and "Mei Lin" had merged the sister with the coworker through the union-find).
+
+### Idempotency and rollback
+Writer: Session MERGEd on OpenClaw's session id, Memory MERGEd on `writeKey = sha256(session, normalized fact)`, MENTIONS/PART_OF MERGEd, new mentions follow `MERGED_INTO`. Editor: decay once per day, boost once, MERGE everywhere. Each run is an `EditorRun`; created relationships/nodes carry `editorRun`, property changes and deleted relationships are journaled as undo ops on EditActions; `--rollback <run>` replays them newest-first and deletes the tagged items in one transaction. Integration tests (`tests/test_idempotency.py`, `tests/test_rollback.py`) use a deterministic fake LLM; the Writer and decay tests fail on the pre-change code.
+
+### Model and effort, chosen by the harness
+| Editor model | Dedup P | Contradiction P / R | Current facts wrongly superseded | Recall@5 | Cost / run |
+|---|---|---|---|---|---|
+| Sonnet 5, low effort | 81% | 77% / 87% | 0% | 80% | $0.32 |
+| Sonnet 5, medium effort | 89% | 89% / 100% | 0% | 86% | $0.41 |
+| Haiku 4.5 | 89% | 56% / 80% | 23% | 75% | $0.14 |
+
+Default effort is now medium. Haiku 4.5 is cheapest but marks almost a quarter of current facts outdated, which is the failure that hurts retrieval most. (`editor/.env` in my setup still pins Haiku; worth switching.) The review's "< $0.08 per run" target isn't met on this fixture: it is 102 facts in one run, about $0.004 per memory; a nightly run over a day's 10-20 new memories lands around $0.04-0.08.
+
+The medium run exposed one more chain: the LLM said "VS Code" = "nvim", the embedding tier merged "nvim" into "Neovim", and the editors the user switched between became one entity. Names mentioned in one memory are now cannot-link constraints like "different" verdicts (run 08: wrong merges back to 0/9).
+
+### Honest caveats
+- Thresholds and prompts were tuned while looking at this fixture; there is no held-out split. Three gold labels were corrected after seeing results (listed in `eval/README.md`).
+- Single-sample numbers: contradiction precision moved 85% → 77% between two runs whose only change was entity resolution, from different candidate pairs and LLM variance.
+- Retrieval recall@5 on "what was it before?" questions is 29%: they lose to the superseded weight. Dedup still merges "accepted an offer" into "works there" at every setting tried.
+
+---
+
+## 2026-09-29 — LoCoMo, and the live instance
+
+### External number
+LoCoMo through the shipped Writer → Editor → retrieval, fixed Sonnet 5 reader, Haiku 4.5 judge: **41.0%** of 1,540 questions (single-hop 56.8%, multi-hop 33.0%, open-domain 36.5%, temporal 8.1%), $17.03. The synthetic fixture said 86% recall@5; the review predicted the drop. Retrieval isn't the main loss (a memory from an evidence session is recalled 79% of the time); extraction is. The Writer keeps ~6 facts per 22-turn session and has no idea what day it is, so "when" questions get "last Saturday".
+
+### Bugs the benchmark found
+- An LLM-extracted `eventTimeStart` of `"--08-15"` made `datetime()` throw and aborted the session's whole write. `writeFacts` now keeps only full ISO dates.
+- Judge replies with prose after the JSON broke `parse_json`; it now takes the first JSON value (no eval-harness recording changes).
+- The Voyage client defaulted to no retries and no timeout; one dropped connection hung the run 10 minutes then failed it. Now 3 retries, 60 s.
+
+### Why the live Writer had saved nothing since May 21
+Four stacked causes: the gateway's launchd service has none of the API keys (they live in `~/.zshrc`), so the plugin failed to register on every service start, with stderr going to `/dev/null`; OpenClaw 2026.5.20 blocks non-bundled plugins' conversation hooks without `hooks.allowConversationAccess`; the Writer dropped every user turn that carried injected recall context; and the Codex plugin auto-updated past core (2026.5.22 vs 2026.5.20), crashing every agent run, then `gpt-5.4` stopped being served to ChatGPT accounts. Pinned the plugin, moved Zku to `gpt-5.5`, granted the hook permissions, fixed the transcript, enforced JSON extraction with structured outputs, and made config errors log through the plugin logger.
+

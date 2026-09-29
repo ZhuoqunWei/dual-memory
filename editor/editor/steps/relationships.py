@@ -1,6 +1,13 @@
 """Step 6: RELATES_TO creation between memories.
 
 For memory pairs sharing entities (no existing edge), ask LLM for relationship type.
+
+Pairs come only from non-hub entities: an entity mentioned by more than
+RELATIONSHIP_HUB_MENTIONS memories (the user themself, typically) links nearly
+every pair, which made this step 95% of the Editor's LLM spend on the eval
+fixture while adding edges nothing reads. Each pair is considered once, when
+the later-reviewed of its memories is in the batch, and at most
+RELATIONSHIP_MAX_PAIRS pairs go to the LLM per run.
 """
 
 from __future__ import annotations
@@ -8,6 +15,8 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from ..constants import RELATIONSHIP_HUB_MENTIONS, RELATIONSHIP_MAX_PAIRS
 
 if TYPE_CHECKING:
     from ..audit import AuditLog
@@ -32,14 +41,16 @@ def run_relationships(
     result = RelationshipResult()
     batch_ids = {m["id"] for m in batch}
 
-    # Group memories by shared entities
+    # Group memories by shared entities, leaving out hubs
     entity_groups = db.fetch_memories_by_shared_entity()
 
     # Collect candidate pairs (share entity, no existing RELATES_TO)
     candidates: list[tuple[dict, dict]] = []
     seen_pairs: set[tuple[str, str]] = set()
 
-    for entity_name, memories in entity_groups.items():
+    for memories in entity_groups.values():
+        if len(memories) > RELATIONSHIP_HUB_MENTIONS:
+            continue
         group_with_batch = [m for m in memories if m["id"] in batch_ids]
         if not group_with_batch:
             continue
@@ -47,8 +58,13 @@ def run_relationships(
         for i, m1 in enumerate(memories):
             for j in range(i + 1, len(memories)):
                 m2 = memories[j]
-                # At least one must be from the batch
+                # At least one must be from the batch, and the other reviewed
+                # already or in the batch too (so each pair is asked once)
                 if m1["id"] not in batch_ids and m2["id"] not in batch_ids:
+                    continue
+                if (m1["status"] == "raw" and m1["id"] not in batch_ids) or (
+                    m2["status"] == "raw" and m2["id"] not in batch_ids
+                ):
                     continue
 
                 pair_key = tuple(sorted((m1["id"], m2["id"])))
@@ -61,6 +77,7 @@ def run_relationships(
 
     if not candidates:
         return result
+    candidates = candidates[:RELATIONSHIP_MAX_PAIRS]
 
     # Batch LLM calls (12 pairs per call)
     for chunk_start in range(0, len(candidates), 12):

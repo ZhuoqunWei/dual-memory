@@ -4,7 +4,7 @@
  */
 
 import neo4j, { type Driver, type Session, type ManagedTransaction } from "neo4j-driver";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 // ============================================================================
 // Types — matches v2.1 schema
@@ -43,6 +43,7 @@ export type EntityNode = {
 
 export type SessionNode = {
   id: string;
+  key?: string; // OpenClaw session id; makes createSession idempotent
   date: string;
   summary: string;
   messageCount: number;
@@ -82,6 +83,23 @@ export type ExtractedFact = {
   }[];
 };
 
+export type SimilarMemory = {
+  id: string;
+  content: string;
+  similarity: number;
+};
+
+/** Per-fact result of writeFacts, in input order. */
+export type FactWriteOutcome =
+  | { status: "written"; memoryId: string }
+  | { status: "already_written"; memoryId: string }
+  | { status: "skipped_similar"; memoryId: string; similarity: number };
+
+export type WriteFactsResult = {
+  memoryIds: string[]; // newly created Memory ids
+  outcomes: FactWriteOutcome[];
+};
+
 export type EntityLink = {
   source: string;  // entity name
   target: string;  // entity name
@@ -99,6 +117,7 @@ export type RetrievalResult = {
   score: number;
   entities?: string[];
   entityRelations?: string[];  // e.g., ["Alice is colleague of Bob"]
+  supersededAt?: string;  // set when a newer memory replaced this one
 };
 
 // ============================================================================
@@ -110,7 +129,10 @@ const SCHEMA_STATEMENTS = [
   "CREATE CONSTRAINT memory_id IF NOT EXISTS FOR (m:Memory) REQUIRE m.id IS UNIQUE",
   "CREATE CONSTRAINT entity_id IF NOT EXISTS FOR (e:Entity) REQUIRE e.id IS UNIQUE",
   "CREATE CONSTRAINT session_id IF NOT EXISTS FOR (s:Session) REQUIRE s.id IS UNIQUE",
+  "CREATE CONSTRAINT session_key IF NOT EXISTS FOR (s:Session) REQUIRE s.key IS UNIQUE",
+  "CREATE CONSTRAINT memory_write_key IF NOT EXISTS FOR (m:Memory) REQUIRE m.writeKey IS UNIQUE",
   "CREATE CONSTRAINT editaction_id IF NOT EXISTS FOR (a:EditAction) REQUIRE a.id IS UNIQUE",
+  "CREATE CONSTRAINT editorrun_id IF NOT EXISTS FOR (r:EditorRun) REQUIRE r.id IS UNIQUE",
   "CREATE CONSTRAINT category_name IF NOT EXISTS FOR (c:Category) REQUIRE c.name IS UNIQUE",
   // Performance indexes
   "CREATE INDEX memory_status IF NOT EXISTS FOR (m:Memory) ON (m.status)",
@@ -121,6 +143,7 @@ const SCHEMA_STATEMENTS = [
   "CREATE INDEX entity_name IF NOT EXISTS FOR (e:Entity) ON (e.name)",
   "CREATE INDEX entity_normalizedType IF NOT EXISTS FOR (e:Entity) ON (e.normalizedType)",
   "CREATE INDEX session_date IF NOT EXISTS FOR (s:Session) ON (s.date)",
+  "CREATE INDEX editaction_run IF NOT EXISTS FOR (a:EditAction) ON (a.runId)",
 ];
 
 // Vector indexes are created dynamically based on embedding model dimensions
@@ -133,6 +156,72 @@ function vectorIndexStatements(dims: number): string[] {
      FOR (e:Entity) ON (e.embedding)
      OPTIONS { indexConfig: { \`vector.dimensions\`: ${dims}, \`vector.similarity_function\`: 'cosine' }}`,
   ];
+}
+
+/**
+ * Score multiplier for memories a newer memory has superseded. They stay
+ * retrievable for questions about the past, but rank below current facts.
+ */
+export const SUPERSEDED_WEIGHT = 0.7;
+
+/** Cypher expression: the date a memory stopped being valid, or null. */
+const SUPERSEDED_AT = (m: string) =>
+  `CASE WHEN ${m}.validTo IS NOT NULL AND ${m}.validTo <= datetime()
+        THEN toString(date(${m}.validTo)) END AS supersededAt`;
+
+function validityWeight(supersededAt: string | undefined): number {
+  return supersededAt ? SUPERSEDED_WEIGHT : 1;
+}
+
+/**
+ * Upsert an entity by name and mention it from a memory. A name the Editor
+ * merged away resolves to the entity it was merged into.
+ */
+const MENTION_ENTITY = `
+  MERGE (e:Entity {name: $name})
+  ON CREATE SET e.id = $entityId, e.type = $type,
+                e.aliases = $aliases, e.firstSeen = datetime()
+  ON MATCH SET e.aliases = CASE
+    WHEN size([a IN $aliases WHERE NOT a IN e.aliases]) > 0
+    THEN e.aliases + [a IN $aliases WHERE NOT a IN e.aliases]
+    ELSE e.aliases END
+  WITH e
+  OPTIONAL MATCH (e)-[:MERGED_INTO*1..5]->(root:Entity)
+  WHERE NOT (root)-[:MERGED_INTO]->()
+  WITH coalesce(root, e) AS target
+  MATCH (m:Memory {id: $memoryId})
+  MERGE (m)-[r:MENTIONS]->(target)
+  ON CREATE SET r.role = $role`;
+
+/**
+ * Idempotency key for a fact written in a session: rerunning the Writer on the
+ * same session (agent_end fires after every turn) finds it instead of writing
+ * a copy. Case, spacing, and trailing punctuation don't count as a new fact.
+ */
+function writeKey(sessionId: string, content: string): string {
+  const normalized = content.toLowerCase().replace(/\s+/g, " ").trim().replace(/[.!]+$/, "");
+  return createHash("sha256").update(`${sessionId}\n${normalized}`).digest("hex");
+}
+
+/**
+ * An extracted event time Neo4j's datetime() accepts, or null. The LLM
+ * occasionally returns partial or relative dates ("--08-15", "last summer"),
+ * and one bad value would otherwise abort the whole session's write.
+ */
+function isoDateOrNull(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
+}
+
+/** Cosine above which a same-session fact counts as a restatement. */
+export const WRITER_DEDUP_COSINE = 0.95;
+
+/**
+ * Neo4j's vector index reports cosine similarity rescaled to [0, 1] as
+ * (1 + cos) / 2. Thresholds and scores here are plain cosine, so convert.
+ */
+function toCosine(score: number): number {
+  return 2 * score - 1;
 }
 
 // ============================================================================
@@ -187,21 +276,25 @@ export class Neo4jClient {
   // Session (conversation) operations
   // ========================================================================
 
+  /**
+   * Create the Session node for a conversation. With a `key` (OpenClaw's
+   * session id) this is idempotent: agent_end fires after every turn, and each
+   * call for the same conversation returns the same Session.
+   */
   async createSession(data: Omit<SessionNode, "id">): Promise<SessionNode> {
     await this.ensureSchema();
-    const id = randomUUID();
     const session = this.driver.session();
     try {
-      await session.executeWrite((tx: ManagedTransaction) =>
+      const result = await session.executeWrite((tx: ManagedTransaction) =>
         tx.run(
-          `CREATE (s:Session {
-            id: $id, date: datetime($date), summary: $summary,
-            messageCount: $messageCount, channel: $channel
-          })`,
-          { id, ...data },
+          `MERGE (s:Session {key: $key})
+           ON CREATE SET s.id = $id, s.date = datetime($date), s.channel = $channel
+           SET s.summary = $summary, s.messageCount = $messageCount
+           RETURN s.id AS id`,
+          { ...data, id: randomUUID(), key: data.key ?? randomUUID() },
         ),
       );
-      return { id, ...data };
+      return { ...data, id: result.records[0].get("id") as string };
     } finally {
       await session.close();
     }
@@ -212,31 +305,41 @@ export class Neo4jClient {
   // ========================================================================
 
   /**
-   * Check if a similar memory already exists (cosine similarity >= threshold).
-   * Returns the existing content string if found, null otherwise.
+   * Find an active memory from the same session that is a near-restatement
+   * (cosine >= threshold). Returns the closest match, or null.
+   *
+   * Scoped to the session because that is where repeats come from: every
+   * agent_end re-extracts the whole transcript. Across sessions a similar
+   * fact may be an update ("lives in Seattle" / "now lives in Portland" score
+   * 0.86), so those go to the Editor, whose LLM tier can tell the difference.
    */
-  async findSimilar(embedding: number[], threshold: number = 0.92): Promise<string | null> {
+  async findSimilar(
+    embedding: number[],
+    sessionId: string,
+    threshold: number = WRITER_DEDUP_COSINE,
+  ): Promise<SimilarMemory | null> {
     await this.ensureSchema();
     const session = this.driver.session();
     try {
       const result = await session.executeRead((tx: ManagedTransaction) =>
         tx.run(
-          `CALL db.index.vector.queryNodes('memoryEmbeddings', 1, $embedding)
-           YIELD node AS mem, score AS sim
-           RETURN mem.id AS id, mem.content AS content, mem.status AS status, sim`,
-          { embedding },
+          `CALL db.index.vector.queryNodes('memoryEmbeddings', 20, $embedding)
+           YIELD node AS mem, score
+           WITH mem, 2 * score - 1 AS cosine
+           WHERE cosine >= $threshold AND mem.status IN ['raw', 'reviewed']
+             AND EXISTS { (mem)-[:PART_OF]->(:Session {id: $sessionId}) }
+           RETURN mem.id AS id, mem.content AS content, cosine
+           ORDER BY cosine DESC LIMIT 1`,
+          { embedding, sessionId, threshold },
         ),
       );
       const record = result.records[0];
-      if (record) {
-        const status = record.get("status") as string;
-        if (status === "archived" || status === "suppressed") return null;
-        const sim = record.get("sim") as number;
-        if (sim >= threshold) {
-          return record.get("content") as string;
-        }
-      }
-      return null;
+      if (!record) return null;
+      return {
+        id: record.get("id") as string,
+        content: record.get("content") as string,
+        similarity: record.get("cosine") as number,
+      };
     } finally {
       await session.close();
     }
@@ -245,62 +348,82 @@ export class Neo4jClient {
   /**
    * Write extracted facts to Neo4j as Memory nodes + Entity nodes + relationships.
    * This is the Writer's main operation.
+   *
+   * `observedAt` stamps the memories (defaults to now); the eval harness uses it
+   * to replay sessions at their original dates.
    */
   async writeFacts(
     facts: ExtractedFact[],
     sessionId: string,
     embeddings: number[][],
-  ): Promise<string[]> {
+    options: { observedAt?: string } = {},
+  ): Promise<WriteFactsResult> {
     await this.ensureSchema();
+    const observedAt = options.observedAt ?? new Date().toISOString();
     const memoryIds: string[] = [];
+    const outcomes: FactWriteOutcome[] = [];
     const session = this.driver.session();
 
     try {
       for (let i = 0; i < facts.length; i++) {
         const fact = facts[i];
         const embedding = embeddings[i];
+        const key = writeKey(sessionId, fact.content);
 
-        // Pre-write dedup: skip if similar memory already exists
-        const existingContent = await this.findSimilar(embedding, 0.92);
-        if (existingContent) {
-          console.log(
-            `[dual-memory] Skipped duplicate: "${fact.content.slice(0, 60)}..." ≈ "${existingContent.slice(0, 60)}..."`,
-          );
+        // Idempotency: this session already wrote this fact (whatever the
+        // Editor has since done to it).
+        const already = await session.executeRead((tx: ManagedTransaction) =>
+          tx.run(`MATCH (m:Memory {writeKey: $key}) RETURN m.id AS id`, { key }),
+        );
+        if (already.records.length > 0) {
+          outcomes.push({ status: "already_written", memoryId: already.records[0].get("id") as string });
           continue;
         }
 
-        const memoryId = randomUUID();
-        memoryIds.push(memoryId);
+        // Pre-write dedup: skip if similar memory already exists
+        const existing = await this.findSimilar(embedding, sessionId);
+        if (existing) {
+          console.log(
+            `[dual-memory] Skipped duplicate: "${fact.content.slice(0, 60)}..." ≈ "${existing.content.slice(0, 60)}..."`,
+          );
+          outcomes.push({ status: "skipped_similar", memoryId: existing.id, similarity: existing.similarity });
+          continue;
+        }
 
-        await session.executeWrite(async (tx: ManagedTransaction) => {
-          // 1. Create Memory node
-          await tx.run(
-            `CREATE (m:Memory {
-              id: $id,
-              content: $content,
-              kind: $kind,
-              timestamp: datetime(),
-              eventTimeStart: CASE WHEN $eventTimeStart IS NOT NULL THEN datetime($eventTimeStart) ELSE null END,
-              eventTimeEnd: CASE WHEN $eventTimeEnd IS NOT NULL THEN datetime($eventTimeEnd) ELSE null END,
-              expiresAt: null,
-              confidence: $confidence,
-              salience: $salience,
-              status: 'raw',
-              lastAccessed: null,
-              sourceRef: $sourceRef,
-              sourceQuote: $sourceQuote,
-              sourceChannel: $sourceChannel,
-              sourceAuthor: $sourceAuthor,
-              embedding: $embedding
-            })`,
+        let memoryId: string = randomUUID();
+
+        const created = await session.executeWrite(async (tx: ManagedTransaction) => {
+          // 1. Create Memory node (MERGE on writeKey: a concurrent run for the
+          //    same session can't create a second copy)
+          const res = await tx.run(
+            `MERGE (m:Memory {writeKey: $writeKey})
+             ON CREATE SET
+              m.id = $id,
+              m.content = $content,
+              m.kind = $kind,
+              m.timestamp = datetime($observedAt),
+              m.validFrom = datetime($observedAt),
+              m.eventTimeStart = CASE WHEN $eventTimeStart IS NOT NULL THEN datetime($eventTimeStart) ELSE null END,
+              m.eventTimeEnd = CASE WHEN $eventTimeEnd IS NOT NULL THEN datetime($eventTimeEnd) ELSE null END,
+              m.confidence = $confidence,
+              m.salience = $salience,
+              m.status = 'raw',
+              m.sourceRef = $sourceRef,
+              m.sourceQuote = $sourceQuote,
+              m.sourceChannel = $sourceChannel,
+              m.sourceAuthor = $sourceAuthor,
+              m.embedding = $embedding
+             RETURN m.id AS id`,
             {
+              writeKey: key,
               id: memoryId,
+              observedAt,
               content: fact.content,
               kind: fact.kind,
               confidence: fact.confidence,
               salience: fact.salience,
-              eventTimeStart: fact.eventTimeStart ?? null,
-              eventTimeEnd: fact.eventTimeEnd ?? null,
+              eventTimeStart: isoDateOrNull(fact.eventTimeStart),
+              eventTimeEnd: isoDateOrNull(fact.eventTimeEnd),
               sourceRef: fact.sourceRef ?? null,
               sourceQuote: fact.sourceQuote ?? null,
               sourceChannel: fact.sourceChannel ?? null,
@@ -308,50 +431,40 @@ export class Neo4jClient {
               embedding,
             },
           );
+          if (res.records[0].get("id") !== memoryId) {
+            memoryId = res.records[0].get("id") as string;
+            return false;
+          }
 
           // 2. Link to Session
           await tx.run(
             `MATCH (m:Memory {id: $memoryId}), (s:Session {id: $sessionId})
-             CREATE (m)-[:PART_OF]->(s)`,
+             MERGE (m)-[:PART_OF]->(s)`,
             { memoryId, sessionId },
           );
 
           // 3. Create/merge Entity nodes and MENTIONS relationships
           for (const entity of fact.entities) {
-            // Try to find existing entity by name or alias
-            await tx.run(
-              `MERGE (e:Entity {name: $name})
-               ON CREATE SET
-                 e.id = $entityId,
-                 e.type = $type,
-                 e.aliases = $aliases,
-                 e.firstSeen = datetime()
-               ON MATCH SET
-                 e.aliases = CASE
-                   WHEN size([a IN $aliases WHERE NOT a IN e.aliases]) > 0
-                   THEN e.aliases + [a IN $aliases WHERE NOT a IN e.aliases]
-                   ELSE e.aliases
-                 END
-               WITH e
-               MATCH (m:Memory {id: $memoryId})
-               CREATE (m)-[:MENTIONS {role: $role}]->(e)`,
-              {
-                name: entity.name,
-                entityId: randomUUID(),
-                type: entity.type,
-                aliases: entity.aliases ?? [entity.name],
-                memoryId,
-                role: entity.role,
-              },
-            );
+            await tx.run(MENTION_ENTITY, {
+              name: entity.name,
+              entityId: randomUUID(),
+              type: entity.type,
+              aliases: entity.aliases ?? [entity.name],
+              memoryId,
+              role: entity.role,
+            });
           }
+          return true;
         });
+
+        if (created) memoryIds.push(memoryId);
+        outcomes.push({ status: created ? "written" : "already_written", memoryId });
       }
     } finally {
       await session.close();
     }
 
-    return memoryIds;
+    return { memoryIds, outcomes };
   }
 
   /**
@@ -429,6 +542,7 @@ export class Neo4jClient {
                   mem.normalizedKind AS normalizedKind,
                   mem.status AS status, mem.confidence AS confidence,
                   mem.salience AS salience, mem.expiresAt AS expiresAt,
+                  ${SUPERSEDED_AT("mem")},
                   sim`,
           { queryVector, annLimit },
         ),
@@ -444,16 +558,19 @@ export class Neo4jClient {
           return true;
         })
         .map((r) => {
-          const sim = r.get("sim") as number;
+          const sim = toCosine(r.get("sim") as number);
           const confidence = (r.get("confidence") as number) ?? 0.5;
           const salience = (r.get("salience") as number) ?? 0.5;
-          const score = sim * (0.6 + 0.4 * confidence) * (0.6 + 0.4 * salience);
+          const supersededAt = (r.get("supersededAt") as string | null) ?? undefined;
+          const score =
+            sim * (0.6 + 0.4 * confidence) * (0.6 + 0.4 * salience) * validityWeight(supersededAt);
           return {
             id: r.get("id") as string,
             content: r.get("content") as string,
             kind: r.get("kind") as string,
             normalizedKind: r.get("normalizedKind") as string | undefined,
             score,
+            supersededAt,
             source: "vector" as const,
           };
         })
@@ -497,6 +614,7 @@ export class Neo4jClient {
         kind: string;
         normalizedKind?: string;
         score: number;
+        supersededAt?: string;
         source: "vector" | "graph";
       };
 
@@ -515,6 +633,7 @@ export class Neo4jClient {
                     m.normalizedKind AS normalizedKind,
                     m.confidence AS confidence, m.salience AS salience,
                     m.embedding AS embedding,
+                    ${SUPERSEDED_AT("m")},
                     sharedEntities`,
             { entityNames: expansionEntities, seedIds },
           ),
@@ -542,8 +661,9 @@ export class Neo4jClient {
           const entityBonus = Math.min(0.3, sharedEntities.length * 0.1);
 
           // Combined score: base vector score + entity bonus
+          const supersededAt = (r.get("supersededAt") as string | null) ?? undefined;
           const baseScore = sim * (0.6 + 0.4 * confidence) * (0.6 + 0.4 * salience);
-          const score = baseScore + entityBonus;
+          const score = (baseScore + entityBonus) * validityWeight(supersededAt);
 
           expansions.push({
             id,
@@ -551,6 +671,7 @@ export class Neo4jClient {
             kind: r.get("kind") as string,
             normalizedKind: r.get("normalizedKind") as string | undefined,
             score,
+            supersededAt,
             source: "graph",
           });
         }
@@ -636,6 +757,7 @@ export class Neo4jClient {
           kind: r.kind,
           normalizedKind: r.normalizedKind,
           score: r.score,
+          supersededAt: r.supersededAt,
           entities: entityMap.get(r.id) ?? [],
           entityRelations: relMap.get(r.id),
         }));
@@ -647,6 +769,7 @@ export class Neo4jClient {
         kind: r.kind,
         normalizedKind: r.normalizedKind,
         score: r.score,
+        supersededAt: r.supersededAt,
       }));
     } finally {
       await session.close();
@@ -675,6 +798,7 @@ export class Neo4jClient {
             content: $content,
             kind: $kind,
             timestamp: datetime(),
+            validFrom: datetime(),
             confidence: 0.5,
             salience: 0.5,
             status: 'raw',
@@ -694,26 +818,14 @@ export class Neo4jClient {
 
         // Create entity mentions
         for (const entity of entities) {
-          await tx.run(
-            `MERGE (e:Entity {name: $name})
-             ON CREATE SET e.id = $entityId, e.type = $type,
-                           e.aliases = $aliases, e.firstSeen = datetime()
-             ON MATCH SET e.aliases = CASE
-               WHEN size([a IN $aliases WHERE NOT a IN e.aliases]) > 0
-               THEN e.aliases + [a IN $aliases WHERE NOT a IN e.aliases]
-               ELSE e.aliases END
-             WITH e
-             MATCH (m:Memory {id: $memoryId})
-             CREATE (m)-[:MENTIONS {role: $role}]->(e)`,
-            {
-              name: entity.name,
-              entityId: randomUUID(),
-              type: entity.type,
-              aliases: entity.aliases ?? [entity.name],
-              memoryId,
-              role: entity.role,
-            },
-          );
+          await tx.run(MENTION_ENTITY, {
+            name: entity.name,
+            entityId: randomUUID(),
+            type: entity.type,
+            aliases: entity.aliases ?? [entity.name],
+            memoryId,
+            role: entity.role,
+          });
         }
       });
     } finally {

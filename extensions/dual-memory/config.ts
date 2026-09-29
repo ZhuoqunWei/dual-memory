@@ -11,6 +11,7 @@
  */
 
 import type { EmbeddingProvider } from "./embeddings.js";
+import { DEFAULT_ANTHROPIC_MODEL } from "./writer.js";
 
 export type DualMemoryConfig = {
   neo4j: {
@@ -122,7 +123,7 @@ export function parseConfig(value: unknown): DualMemoryConfig {
     typeof extraction?.model === "string"
       ? extraction.model
       : extractionProvider === "anthropic"
-        ? "claude-sonnet-4-20250514"
+        ? DEFAULT_ANTHROPIC_MODEL
         : "gpt-4o-mini";
 
   return {
