@@ -12,6 +12,8 @@ from .constants import (
     CATEGORY_COSINE,
     CATEGORY_QUORUM,
     CONFIDENCE_DECAY,
+    DEFAULT_LLM_EFFORT,
+    DEFAULT_LLM_MODEL,
     EXACT_DEDUP_COSINE,
     SEMANTIC_DEDUP_COSINE,
 )
@@ -26,7 +28,8 @@ class EditorConfig:
 
     # LLM (Editor reasoning)
     anthropic_api_key: str = ""
-    llm_model: str = "claude-sonnet-4-20250514"
+    llm_model: str = DEFAULT_LLM_MODEL
+    llm_effort: str = DEFAULT_LLM_EFFORT
 
     # Embeddings
     voyage_api_key: str = ""
@@ -54,7 +57,8 @@ class EditorConfig:
             neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
             neo4j_password=os.getenv("NEO4J_PASSWORD", "dualmemory2026"),
             anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
-            llm_model=os.getenv("EDITOR_LLM_MODEL", "claude-sonnet-4-20250514"),
+            llm_model=os.getenv("EDITOR_LLM_MODEL", DEFAULT_LLM_MODEL),
+            llm_effort=os.getenv("EDITOR_LLM_EFFORT", DEFAULT_LLM_EFFORT),
             voyage_api_key=os.getenv("VOYAGE_API_KEY", ""),
             embedding_model=os.getenv("EMBEDDING_MODEL", "voyage-4-lite"),
             batch_cap=int(os.getenv("EDITOR_BATCH_CAP", str(BATCH_CAP))),

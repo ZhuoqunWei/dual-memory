@@ -46,11 +46,9 @@ def run_confidence(
 
     for key, sessions in session_counts.items():
         if len(sessions) > 1:
-            # This content appeared in multiple sessions — boost confidence
+            # This content appeared in multiple sessions — boost confidence (once)
             for mem in content_map[key]:
-                new_conf = min(1.0, mem["confidence"] + CONFIDENCE_MULTI_SESSION_BOOST)
-                if new_conf != mem["confidence"]:
-                    db.set_confidence(mem["id"], new_conf)
+                if db.boost_confidence_once(mem["id"], CONFIDENCE_MULTI_SESSION_BOOST):
                     result.boosted += 1
 
     if result.boosted:

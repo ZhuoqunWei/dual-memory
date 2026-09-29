@@ -47,3 +47,64 @@ jobs:
       - name: Lint Editor
         working-directory: editor
         run: python -m ruff check editor tests
+
+  eval:
+    # Replays the recorded eval run (eval/cache) against a scratch Neo4j:
+    # no API keys needed, and a changed Editor prompt fails with a cache miss.
+    runs-on: ubuntu-latest
+
+    services:
+      neo4j:
+        image: neo4j:2026.01.4
+        env:
+          NEO4J_AUTH: neo4j/dualmemory-eval
+        ports:
+          - 7688:7687
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      EVAL_NEO4J_URI: bolt://localhost:7688
+      EVAL_NEO4J_PASSWORD: dualmemory-eval
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: extensions/dual-memory/package-lock.json
+
+      - name: Install TypeScript dependencies
+        working-directory: extensions/dual-memory
+        run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Editor dependencies
+        working-directory: editor
+        run: pip install -e ".[dev]"
+
+      - name: Replay eval harness and check thresholds
+        working-directory: editor
+        run: python -m editor.evaluation --check --out ../eval/results/ci.json
+
+      - name: Idempotency and rollback integration tests
+        working-directory: editor
+        run: python -m pytest tests/test_idempotency.py tests/test_rollback.py
+
+      - name: Upload eval report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: eval/results/ci.json

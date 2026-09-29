@@ -95,7 +95,7 @@ async function test() {
   ];
 
   const embeddings = facts.map(() => mockEmbedding());
-  const memoryIds = await db.writeFacts(facts, session.id, embeddings);
+  const { memoryIds } = await db.writeFacts(facts, session.id, embeddings);
   console.log(`   ✓ Wrote ${memoryIds.length} memories`);
   for (let i = 0; i < memoryIds.length; i++) {
     console.log(`     ${memoryIds[i].slice(0, 8)}... [${facts[i].kind}] ${facts[i].content.slice(0, 50)}...`);

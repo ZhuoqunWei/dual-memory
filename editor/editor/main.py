@@ -5,12 +5,15 @@ Usage:
     python -m editor.main --once --all    # Process ALL raw memories (no batch cap)
     python -m editor.main --step dedup    # Run only dedup step
     python -m editor.main --stats         # Show graph stats
+    python -m editor.main --runs          # List recent Editor runs
+    python -m editor.main --rollback ID   # Undo an Editor run
     python -m editor.main                 # Start scheduler (nightly + threshold)
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import time
 
@@ -20,7 +23,8 @@ from .config import EditorConfig
 from .db import EditorDB
 from .embeddings import EmbeddingsClient
 from .llm import LLMClient
-from .pipeline import PipelineResult, run_pipeline
+from .pipeline import PipelineResult, StepMetrics, format_step_metrics, run_pipeline
+from .rollback import RollbackRefused, rollback_run
 
 log = logging.getLogger("editor")
 
@@ -31,8 +35,15 @@ def main() -> None:
     parser.add_argument("--all", action="store_true", help="Process ALL raw memories (loop until none remain)")
     parser.add_argument("--step", type=str, help="Run only this step (dedup, classify, categories, ...)")
     parser.add_argument("--stats", action="store_true", help="Show graph stats and exit")
+    parser.add_argument("--runs", action="store_true", help="List recent Editor runs and exit")
+    parser.add_argument("--rollback", metavar="RUN_ID", help="Undo an Editor run and exit")
+    parser.add_argument("--force", action="store_true", help="With --rollback: allow undoing a run later runs built on")
     parser.add_argument("--verbose", "-v", action="store_true", help="Debug logging")
     args = parser.parse_args()
+    if args.all and args.step:
+        # A single step never marks memories reviewed, so the --all loop would
+        # keep fetching the same raw batch forever.
+        parser.error("--all cannot be combined with --step")
 
     # Logging setup
     level = logging.DEBUG if args.verbose else logging.INFO
@@ -49,13 +60,26 @@ def main() -> None:
         if args.stats:
             _print_stats(db)
             return
+        if args.runs:
+            _print_runs(db)
+            return
+        if args.rollback:
+            try:
+                r = rollback_run(db, args.rollback, force=args.force)
+            except RollbackRefused as e:
+                parser.exit(1, f"Rollback refused: {e}\n")
+            print(
+                f"Rolled back run {r.run_id}: {r.undo_ops} changes restored, "
+                f"{r.relationships_deleted} relationships and {r.nodes_deleted} nodes removed"
+            )
+            return
 
         # Build clients
         llm = None
         embeddings = None
 
         if config.anthropic_api_key:
-            llm = LLMClient(config.anthropic_api_key, config.llm_model)
+            llm = LLMClient(config.anthropic_api_key, config.llm_model, config.llm_effort)
             log.info("LLM client ready (%s)", config.llm_model)
         else:
             log.warning("No ANTHROPIC_API_KEY — LLM-dependent steps will be skipped")
@@ -68,14 +92,15 @@ def main() -> None:
 
         if args.once or args.step:
             if args.all:
-                _run_all(db, llm, embeddings, config, args.step)
+                _run_all(db, llm, embeddings, config)
             else:
                 result = run_pipeline(
                     db, llm, embeddings, config,
-                    only_step=args.step,
+                    steps={args.step} if args.step else None,
                     batch_cap=config.batch_cap,
                 )
                 _print_result(result)
+                _print_cost_table(result.step_metrics)
         else:
             _run_scheduler(db, llm, embeddings, config)
     finally:
@@ -87,11 +112,11 @@ def _run_all(
     llm: LLMClient | None,
     embeddings: EmbeddingsClient | None,
     config: EditorConfig,
-    only_step: str | None,
 ) -> None:
     """Loop until no raw memories remain."""
     cycle = 0
     total_processed = 0
+    metrics: list[StepMetrics] = []
 
     while True:
         cycle += 1
@@ -101,16 +126,16 @@ def _run_all(
             break
 
         log.info("=== Cycle %d (%d raw remaining) ===", cycle, raw_count)
-        result = run_pipeline(
-            db, llm, embeddings, config,
-            only_step=only_step,
-            batch_cap=config.batch_cap,
-        )
+        result = run_pipeline(db, llm, embeddings, config, batch_cap=config.batch_cap)
         _print_result(result)
+        metrics.extend(result.step_metrics)
         total_processed += result.batch_size
 
         if result.batch_size == 0:
             break
+
+    if metrics:
+        _print_cost_table(metrics)
 
 
 def _run_scheduler(
@@ -123,7 +148,7 @@ def _run_scheduler(
 
     def _nightly_job() -> None:
         log.info("Nightly run triggered")
-        _run_all(db, llm, embeddings, config, only_step=None)
+        _run_all(db, llm, embeddings, config)
 
     def _threshold_job() -> None:
         raw_count = db.get_raw_count()
@@ -131,6 +156,7 @@ def _run_scheduler(
             log.info("Threshold reached (%d >= %d), running pipeline", raw_count, config.raw_threshold)
             result = run_pipeline(db, llm, embeddings, config, batch_cap=config.batch_cap)
             _print_result(result)
+            _print_cost_table(result.step_metrics)
 
     schedule.every().day.at(config.nightly_time).do(_nightly_job)
     schedule.every(config.check_interval_minutes).minutes.do(_threshold_job)
@@ -156,8 +182,20 @@ def _print_stats(db: EditorDB) -> None:
     print()
 
 
+def _print_runs(db: EditorDB) -> None:
+    print(f"\n{'run id':<38} {'started':<25} {'status':<12} {'batch':>5} {'actions':>7} {'cost':>8}")
+    for r in db.fetch_runs():
+        summary = json.loads(r["summary"] or "{}")
+        cost = summary.get("costUsd")
+        print(
+            f"{r['id']:<38} {r['startedAt'][:25]:<25} {r['status']:<12} {r['batchSize'] or 0:>5} "
+            f"{r['actions']:>7} {'n/a' if cost is None else f'${cost:.4f}':>8}"
+        )
+    print()
+
+
 def _print_result(result: PipelineResult) -> None:
-    print(f"\n--- Editor Run ({result.batch_size} memories, {result.duration_seconds:.1f}s) ---")
+    print(f"\n--- Editor Run {result.run_id or ''} ({result.batch_size} memories, {result.duration_seconds:.1f}s) ---")
 
     if result.dedup:
         d = result.dedup
@@ -173,11 +211,15 @@ def _print_result(result: PipelineResult) -> None:
 
     if result.contradictions:
         con = result.contradictions
-        print(f"  Contradictions: {con.contradictions_found} found, {con.confidence_adjusted} adjusted, {con.llm_calls} LLM calls")
+        print(f"  Contradictions: {con.candidates} candidate pairs, {con.superseded} superseded, {con.llm_calls} LLM calls")
 
     if result.entity_resolution:
         er = result.entity_resolution
-        print(f"  Entity Resolution: {er.merged} merged, {er.llm_calls} LLM calls")
+        print(
+            f"  Entity Resolution: {er.merged} merged ({er.name_matches} name, "
+            f"{er.embedding_matches} embedding, {er.llm_matches} LLM), "
+            f"{er.llm_distinct} judged distinct, {er.llm_calls} LLM calls"
+        )
 
     if result.relationships:
         rel = result.relationships
@@ -194,6 +236,13 @@ def _print_result(result: PipelineResult) -> None:
     print(f"  Reviewed: {result.reviewed_count}")
     print(f"  Edit actions: {result.edit_actions}")
     print()
+
+
+def _print_cost_table(metrics: list[StepMetrics]) -> None:
+    if metrics:
+        print("--- Cost and latency per step ---")
+        print(format_step_metrics(metrics))
+        print()
 
 
 if __name__ == "__main__":

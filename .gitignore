@@ -50,3 +50,6 @@ neo4j_data/
 .claude/
 .codex/
 .agents/
+
+# Eval report written by CI
+eval/results/ci.json

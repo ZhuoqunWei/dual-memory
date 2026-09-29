@@ -1,0 +1,961 @@
+{
+  "label": "final code, claude-haiku-4-5",
+  "model": "claude-haiku-4-5",
+  "effort": "low",
+  "embedding_model": "voyage-4-lite",
+  "steps": [
+    "dedup",
+    "classify",
+    "categories",
+    "contradictions",
+    "entity_resolution",
+    "relationships",
+    "entity_links",
+    "confidence"
+  ],
+  "fixture": {
+    "sessions": 40,
+    "facts": 102,
+    "gold_unique_facts": 85,
+    "chains": 13,
+    "outdated_facts": 15,
+    "entity_names": 64,
+    "gold_entities": 53,
+    "questions": 50
+  },
+  "writer": {
+    "facts": 102,
+    "written": 102,
+    "skipped_similar": 0
+  },
+  "dedup": {
+    "precision": 0.8947,
+    "recall": 0.9444,
+    "f1": 0.9189,
+    "true_positives": 17,
+    "predicted": 19,
+    "gold": 18,
+    "archived_by_editor": 17,
+    "surviving_memories": 85,
+    "wrong_merges": [
+      {
+        "fact": "User accepted a data engineer offer from Contoso Ltd.",
+        "merged_into": "User now works at Contoso as a data engineer"
+      }
+    ],
+    "missed_duplicates": [
+      [
+        "User's manager at Northwind is Priya Nair",
+        "User reports to Priya"
+      ]
+    ]
+  },
+  "conflicts": {
+    "precision": 0.5556,
+    "recall": 0.8,
+    "f1": 0.6557,
+    "predicted_edges": 36,
+    "correct_edges": 20,
+    "outdated_facts": 15,
+    "outdated_detected": 12,
+    "direction_accuracy": 1.0,
+    "missed": [
+      "User's college friend Jordan Blake lives in Denver",
+      "Chris Lee is User's teammate on Northwind's routing service",
+      "User is planning a trip to Osaka in October"
+    ],
+    "wrong_edges": [
+      {
+        "a": "User will relocate to Portland for the Contoso job",
+        "b": "User wants to run the Portland Marathon in October",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User will relocate to Portland for the Contoso job",
+        "b": "User's college friend Jordan Blake lives in Denver",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User wants to run the Portland Marathon in October",
+        "b": "User lives in Seattle",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User started a side project called Tidepool, a command-line tool for tide forecasts",
+        "b": "Tidepool is written in Python",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User will relocate to Portland for the Contoso job",
+        "b": "User is planning a trip to Osaka in October",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User reports to Priya",
+        "b": "Chris Lee is User's teammate on Northwind's routing service",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User works as a data engineer at Contoso",
+        "b": "Mei Lin is a data analyst on User's team at Contoso",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User booked flights to Tokyo for October 12",
+        "b": "User changed the Japan trip from Osaka to Tokyo and Kyoto",
+        "kind": "supersedes"
+      },
+      {
+        "a": "Mei Lin is a data analyst on User's team at Contoso",
+        "b": "User is interviewing for a data engineering role at Contoso",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User's sister Mei is visiting Portland in November",
+        "b": "User's sister Mei still lives in Toronto",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User eats fish but no other meat",
+        "b": "User's favorite cuisine is Sichuan food",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User stopped running because of a knee injury",
+        "b": "User finished the Seattle Half Marathon in 1:52:10",
+        "kind": "supersedes"
+      },
+      {
+        "a": "Chris Park is joining User on the Japan trip",
+        "b": "User's manager is Wei Wang",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User's work laptop is now a Framework Laptop 13 running Fedora",
+        "b": "User works as a data engineer at Contoso",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User eats fish but no other meat",
+        "b": "User prefers Linux for development",
+        "kind": "supersedes"
+      },
+      {
+        "a": "User works as a data engineer at Contoso",
+        "b": "User likes Python for data work but prefers Rust for command-line tools",
+        "kind": "supersedes"
+      }
+    ],
+    "state": {
+      "outdated_superseded": 1.0,
+      "current_wrongly_superseded": 0.2308,
+      "superseded_outside_chains": 7
+    }
+  },
+  "entities": {
+    "precision": 0.9,
+    "recall": 0.75,
+    "f1": 0.8182,
+    "true_positives": 9,
+    "predicted": 10,
+    "gold": 12,
+    "merges": 10,
+    "wrong_merges": 1,
+    "wrong_merge_rate": 0.1,
+    "wrong_merge_examples": [
+      {
+        "merged": "Mei",
+        "into": "Mei Lin"
+      }
+    ],
+    "missed_merges": [
+      [
+        "Mei",
+        "Mei Ortiz"
+      ],
+      [
+        "W. Wang",
+        "Wang Wei",
+        "Wei Wang"
+      ]
+    ]
+  },
+  "retrieval": {
+    "before_editor": {
+      "recall@5": 0.915,
+      "mrr": 0.6789,
+      "stale_first_rate": 0.6667,
+      "by_type": {
+        "current": {
+          "recall@5": 0.8667,
+          "mrr": 0.4751,
+          "n": 15
+        },
+        "history": {
+          "recall@5": 0.8571,
+          "mrr": 0.5833,
+          "n": 7
+        },
+        "multi": {
+          "recall@5": 0.75,
+          "mrr": 0.85,
+          "n": 5
+        },
+        "stable": {
+          "recall@5": 1.0,
+          "mrr": 0.8036,
+          "n": 23
+        }
+      },
+      "questions": [
+        {
+          "id": "q01",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q02",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q03",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q04",
+          "recall@5": 1.0,
+          "rr": 0.3333,
+          "stale_first": true
+        },
+        {
+          "id": "q05",
+          "recall@5": 1.0,
+          "rr": 0.25,
+          "stale_first": true
+        },
+        {
+          "id": "q06",
+          "recall@5": 1.0,
+          "rr": 0.2,
+          "stale_first": true
+        },
+        {
+          "id": "q07",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": true
+        },
+        {
+          "id": "q08",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": true
+        },
+        {
+          "id": "q09",
+          "recall@5": 0.0,
+          "rr": 0.1429,
+          "stale_first": true
+        },
+        {
+          "id": "q10",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": true
+        },
+        {
+          "id": "q11",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q12",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": true
+        },
+        {
+          "id": "q13",
+          "recall@5": 1.0,
+          "rr": 0.2,
+          "stale_first": false
+        },
+        {
+          "id": "q14",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": true
+        },
+        {
+          "id": "q15",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": true
+        },
+        {
+          "id": "q16",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q17",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q18",
+          "recall@5": 1.0,
+          "rr": 0.3333,
+          "stale_first": false
+        },
+        {
+          "id": "q19",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q20",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q21",
+          "recall@5": 1.0,
+          "rr": 0.25,
+          "stale_first": false
+        },
+        {
+          "id": "q22",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q23",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q24",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q25",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q26",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q27",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q28",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q29",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q30",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q31",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q32",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q33",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q34",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q35",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q36",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q37",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q38",
+          "recall@5": 1.0,
+          "rr": 0.2,
+          "stale_first": false
+        },
+        {
+          "id": "q39",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q40",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q41",
+          "recall@5": 1.0,
+          "rr": 0.25,
+          "stale_first": false
+        },
+        {
+          "id": "q42",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q43",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q44",
+          "recall@5": 1.0,
+          "rr": 0.2,
+          "stale_first": false
+        },
+        {
+          "id": "q45",
+          "recall@5": 1.0,
+          "rr": 0.3333,
+          "stale_first": false
+        },
+        {
+          "id": "q46",
+          "recall@5": 0.5,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q47",
+          "recall@5": 0.75,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q48",
+          "recall@5": 0.5,
+          "rr": 0.25,
+          "stale_first": false
+        },
+        {
+          "id": "q49",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q50",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        }
+      ]
+    },
+    "after_editor": {
+      "recall@5": 0.75,
+      "mrr": 0.6773,
+      "stale_first_rate": 0.0,
+      "by_type": {
+        "current": {
+          "recall@5": 0.8,
+          "mrr": 0.63,
+          "n": 15
+        },
+        "history": {
+          "recall@5": 0.2857,
+          "mrr": 0.3646,
+          "n": 7
+        },
+        "multi": {
+          "recall@5": 0.7,
+          "mrr": 0.8,
+          "n": 5
+        },
+        "stable": {
+          "recall@5": 0.8696,
+          "mrr": 0.7766,
+          "n": 23
+        }
+      },
+      "questions": [
+        {
+          "id": "q01",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q02",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q03",
+          "recall@5": 1.0,
+          "rr": 0.25,
+          "stale_first": false
+        },
+        {
+          "id": "q04",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q05",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q06",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q07",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q08",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q09",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q10",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q11",
+          "recall@5": 1.0,
+          "rr": 0.2,
+          "stale_first": false
+        },
+        {
+          "id": "q12",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q13",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q14",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q15",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q16",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q17",
+          "recall@5": 0.0,
+          "rr": 0.1429,
+          "stale_first": false
+        },
+        {
+          "id": "q18",
+          "recall@5": 0.0,
+          "rr": 0.1429,
+          "stale_first": false
+        },
+        {
+          "id": "q19",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q20",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q21",
+          "recall@5": 0.0,
+          "rr": 0.1,
+          "stale_first": false
+        },
+        {
+          "id": "q22",
+          "recall@5": 0.0,
+          "rr": 0.1667,
+          "stale_first": false
+        },
+        {
+          "id": "q23",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q24",
+          "recall@5": 1.0,
+          "rr": 0.25,
+          "stale_first": false
+        },
+        {
+          "id": "q25",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q26",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q27",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q28",
+          "recall@5": 1.0,
+          "rr": 0.3333,
+          "stale_first": false
+        },
+        {
+          "id": "q29",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q30",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q31",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q32",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q33",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q34",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q35",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q36",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q37",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q38",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q39",
+          "recall@5": 0.0,
+          "rr": 0.1667,
+          "stale_first": false
+        },
+        {
+          "id": "q40",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q41",
+          "recall@5": 1.0,
+          "rr": 0.5,
+          "stale_first": false
+        },
+        {
+          "id": "q42",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q43",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q44",
+          "recall@5": 0.0,
+          "rr": 0.1111,
+          "stale_first": false
+        },
+        {
+          "id": "q45",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q46",
+          "recall@5": 0.75,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q47",
+          "recall@5": 0.75,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q48",
+          "recall@5": 0.0,
+          "rr": 0.0,
+          "stale_first": false
+        },
+        {
+          "id": "q49",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        },
+        {
+          "id": "q50",
+          "recall@5": 1.0,
+          "rr": 1.0,
+          "stale_first": false
+        }
+      ]
+    }
+  },
+  "cost": {
+    "cycles": 2,
+    "editor_wall_seconds": 165.66,
+    "relationship_candidate_pairs": 3274,
+    "steps": [
+      {
+        "step": "dedup",
+        "seconds": 28.51977,
+        "llm_seconds": 28.047,
+        "llm_calls": 6,
+        "input_tokens": 3682,
+        "output_tokens": 3103,
+        "cost_usd": 0.019197,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "classify",
+        "seconds": 0.302401,
+        "llm_seconds": 0.0,
+        "llm_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "categories",
+        "seconds": 0.03525,
+        "llm_seconds": 0.0,
+        "llm_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "contradictions",
+        "seconds": 85.851618,
+        "llm_seconds": 85.156,
+        "llm_calls": 35,
+        "input_tokens": 27588,
+        "output_tokens": 10129,
+        "cost_usd": 0.078233,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "entity_resolution",
+        "seconds": 12.98121,
+        "llm_seconds": 11.626,
+        "llm_calls": 3,
+        "input_tokens": 2235,
+        "output_tokens": 1255,
+        "cost_usd": 0.00851,
+        "embed_calls": 2,
+        "embed_tokens": 468
+      },
+      {
+        "step": "relationships",
+        "seconds": 31.814029,
+        "llm_seconds": 31.211,
+        "llm_calls": 14,
+        "input_tokens": 9275,
+        "output_tokens": 3519,
+        "cost_usd": 0.02687,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "entity_links",
+        "seconds": 5.924954,
+        "llm_seconds": 5.631,
+        "llm_calls": 2,
+        "input_tokens": 1121,
+        "output_tokens": 887,
+        "cost_usd": 0.005556,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "confidence",
+        "seconds": 0.042638,
+        "llm_seconds": 0.0,
+        "llm_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cost_usd": 0.0,
+        "embed_calls": 0,
+        "embed_tokens": 0
+      },
+      {
+        "step": "TOTAL",
+        "seconds": 165.47187,
+        "llm_seconds": 161.671,
+        "llm_calls": 60,
+        "input_tokens": 43901,
+        "output_tokens": 18893,
+        "cost_usd": 0.138366,
+        "embed_calls": 2,
+        "embed_tokens": 468
+      }
+    ],
+    "total": {
+      "step": "TOTAL",
+      "seconds": 165.47187,
+      "llm_seconds": 161.671,
+      "llm_calls": 60,
+      "input_tokens": 43901,
+      "output_tokens": 18893,
+      "cost_usd": 0.138366,
+      "embed_calls": 2,
+      "embed_tokens": 468
+    }
+  },
+  "harness_seconds": 170.29
+}

@@ -101,6 +101,7 @@ const dualMemoryPlugin = {
 
           // Create session node
           const sessionNode = await db.createSession({
+            key: ctx.sessionId ?? ctx.sessionKey,
             date: new Date().toISOString(),
             summary: sessionSummary || "Conversation session",
             messageCount: event.messages.length,
@@ -113,7 +114,7 @@ const dualMemoryPlugin = {
           const factEmbeddings = await embeddings.embedBatch(factTexts);
 
           // Write to Neo4j
-          const memoryIds = await db.writeFacts(
+          const { memoryIds } = await db.writeFacts(
             facts,
             sessionNode.id,
             factEmbeddings,

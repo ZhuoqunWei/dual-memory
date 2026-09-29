@@ -168,6 +168,24 @@ Output:
 // Writer
 // ============================================================================
 
+// Replaces the retired claude-sonnet-4-20250514.
+export const DEFAULT_ANTHROPIC_MODEL = "claude-sonnet-5";
+
+/**
+ * Haiku 4.5 predates adaptive thinking and effort (both 400 there) but still
+ * accepts temperature. Sonnet 5 and later reject non-default temperature;
+ * extraction is a short structured task, so thinking runs at low effort.
+ */
+function anthropicRequestOptions(model: string) {
+  if (model.startsWith("claude-haiku-4")) {
+    return { temperature: 0.1 };
+  }
+  return {
+    thinking: { type: "adaptive" as const },
+    output_config: { effort: "low" as const },
+  };
+}
+
 export class Writer {
   private provider: "anthropic" | "openai";
   private openai?: OpenAI;
@@ -180,7 +198,7 @@ export class Writer {
     model?: string,
   ) {
     this.provider = provider;
-    this.model = model ?? (provider === "anthropic" ? "claude-sonnet-4-20250514" : "gpt-4o-mini");
+    this.model = model ?? (provider === "anthropic" ? DEFAULT_ANTHROPIC_MODEL : "gpt-4o-mini");
 
     if (provider === "anthropic") {
       this.anthropic = new Anthropic({ apiKey });
@@ -320,8 +338,8 @@ export class Writer {
       if (this.provider === "anthropic" && this.anthropic) {
         const response = await this.anthropic.messages.create({
           model: this.model,
-          max_tokens: 4096,
-          temperature: 0.1,
+          max_tokens: 16000,
+          ...anthropicRequestOptions(this.model),
           system: EXTRACTION_SYSTEM_PROMPT + "\n\nIMPORTANT: Respond with ONLY a valid JSON object, no markdown fences.",
           messages: [
             {

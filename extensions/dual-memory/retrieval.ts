@@ -98,7 +98,8 @@ export class Retrieval {
           ? ` (${r.entities.join(", ")})`
           : "";
       const score = Math.round(r.score * 100);
-      return `${i + 1}. [${kind}]${entities} ${r.content} (${score}%)`;
+      const outdated = r.supersededAt ? ` [outdated since ${r.supersededAt}]` : "";
+      return `${i + 1}. [${kind}]${entities} ${r.content}${outdated} (${score}%)`;
     });
 
     // Collect unique entity relations across all results

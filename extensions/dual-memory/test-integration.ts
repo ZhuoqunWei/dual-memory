@@ -84,7 +84,7 @@ async function test() {
   console.log("5. Writing facts to Neo4j...");
   const factTexts = facts.map((f) => f.content);
   const factEmbeddings = await embeddings.embedBatch(factTexts);
-  const memoryIds = await db.writeFacts(facts, session.id, factEmbeddings);
+  const { memoryIds } = await db.writeFacts(facts, session.id, factEmbeddings);
   console.log(`   ✓ Wrote ${memoryIds.length} memories to Neo4j\n`);
 
   // 6. Test Retrieval
