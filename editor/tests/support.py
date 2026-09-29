@@ -63,7 +63,7 @@ class FakeLLM(LLMClient):
             return LLMReply(json.dumps(items), 0, 0, 0.0)
         if "category name" in system:
             return LLMReply(json.dumps({"name": f"Cluster {_hash(user) % 1000}", "description": "test"}), 0, 0, 0.0)
-        count = len(re.findall(r"^\d+\. ", user, re.M))
+        count = len(re.findall(r"^\d+\. ", user, re.MULTILINE))
         return LLMReply(json.dumps(["fact"] * count), 0, 0, 0.0)
 
     @staticmethod

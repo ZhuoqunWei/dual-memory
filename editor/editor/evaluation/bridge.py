@@ -28,6 +28,7 @@ def run_bridge(command: str, payload: dict, neo4j_env: dict[str, str]) -> dict:
             env={**os.environ, **neo4j_env},
             capture_output=True,
             text=True,
+            check=False,  # the return code is checked below, with stderr
         )
         if proc.returncode != 0:
             raise RuntimeError(f"eval-bridge {command} failed:\n{proc.stderr[-2000:]}")

@@ -30,8 +30,8 @@ from .steps.classify import ClassifyResult, run_classify
 from .steps.confidence import ConfidenceResult, run_confidence
 from .steps.contradictions import ContradictionResult, run_contradictions
 from .steps.dedup import DedupResult, run_dedup
-from .steps.entity_resolution import EntityResolutionResult, run_entity_resolution
 from .steps.entity_links import EntityLinksResult, run_entity_links
+from .steps.entity_resolution import EntityResolutionResult, run_entity_resolution
 from .steps.relationships import RelationshipResult, run_relationships
 
 if TYPE_CHECKING:
@@ -287,8 +287,10 @@ def format_step_metrics(metrics: list[StepMetrics]) -> str:
         return "n/a" if c is None else f"${c:.4f}"
 
     lines = [
-        f"  {'step':<18} {'wall s':>7} {'llm s':>7} {'llm':>5} {'in tok':>8} "
-        f"{'out tok':>8} {'cost':>9} {'emb':>4} {'emb tok':>8}",
+        (
+            f"  {'step':<18} {'wall s':>7} {'llm s':>7} {'llm':>5} {'in tok':>8} "
+            f"{'out tok':>8} {'cost':>9} {'emb':>4} {'emb tok':>8}"
+        ),
     ]
     for r in summarize_step_metrics(metrics):
         lines.append(

@@ -79,8 +79,7 @@ def parse_json(text: str) -> dict | list:
             cleaned = cleaned[first_newline + 1 :]
         else:
             cleaned = cleaned[3:]
-    if cleaned.endswith("```"):
-        cleaned = cleaned[:-3]
+    cleaned = cleaned.removesuffix("```")
     return json.loads(cleaned.strip())
 
 

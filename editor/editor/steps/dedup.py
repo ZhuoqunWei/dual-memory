@@ -57,7 +57,7 @@ def run_dedup(
 
     # Build lookup: id -> index in all_memories
     all_ids = [m["id"] for m in all_memories]
-    batch_ids = set(m["id"] for m in batch)
+    batch_ids = {m["id"] for m in batch}
 
     # Extract embeddings into numpy arrays
     all_embeddings = _build_embedding_matrix(all_memories)

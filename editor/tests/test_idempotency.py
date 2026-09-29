@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import unittest
 
+from editor.audit import AuditLog
 from editor.evaluation.bridge import run_bridge
 from editor.pipeline import run_pipeline
 from editor.steps.confidence import run_confidence
-from editor.audit import AuditLog
 
 from .support import (
     NEO4J_ENV,

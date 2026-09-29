@@ -28,7 +28,13 @@ from .cache import CachedEmbeddingsClient, CachedLLMClient, RecordingCache
 from .fixture import Fixture, load_fixture
 from .graph import EvalGraph
 from .loading import VECTOR_DIMS, embed_all, load_payload
-from .metrics import ConflictEdge, conflict_metrics, follow, pairwise_clustering, retrieval_metrics
+from .metrics import (
+    ConflictEdge,
+    conflict_metrics,
+    follow,
+    pairwise_clustering,
+    retrieval_metrics,
+)
 
 log = logging.getLogger("editor.evaluation")
 
@@ -315,10 +321,12 @@ def summary(r: dict) -> str:
     lines = [
         f"## Eval: {r['label']} ({r['model']}, effort {r['effort']})",
         "",
-        f"Fixture: {r['fixture']['sessions']} sessions, {r['fixture']['facts']} facts "
-        f"({r['fixture']['gold_unique_facts']} unique), {r['fixture']['chains']} update chains, "
-        f"{r['fixture']['entity_names']} entity names ({r['fixture']['gold_entities']} real), "
-        f"{r['fixture']['questions']} questions",
+        (
+            f"Fixture: {r['fixture']['sessions']} sessions, {r['fixture']['facts']} facts "
+            f"({r['fixture']['gold_unique_facts']} unique), {r['fixture']['chains']} update chains, "
+            f"{r['fixture']['entity_names']} entity names ({r['fixture']['gold_entities']} real), "
+            f"{r['fixture']['questions']} questions"
+        ),
         "",
         "| Area | Metric | Value |",
         "|---|---|---|",
@@ -332,8 +340,10 @@ def summary(r: dict) -> str:
         f"| Retrieval | recall@5 before → after Editor | {pct(before['recall@5'])} → {pct(after['recall@5'])} |",
         f"| Retrieval | MRR before → after Editor | {before['mrr']:.3f} → {after['mrr']:.3f} |",
         f"| Retrieval | outdated fact ranked first | {pct(before['stale_first_rate'])} → {pct(after['stale_first_rate'])} |",
-        f"| Cost | Editor LLM calls / tokens in+out | {total.get('llm_calls', 0)} / "
-        f"{total.get('input_tokens', 0)}+{total.get('output_tokens', 0)} |",
+        (
+            f"| Cost | Editor LLM calls / tokens in+out | {total.get('llm_calls', 0)} / "
+            f"{total.get('input_tokens', 0)}+{total.get('output_tokens', 0)} |"
+        ),
         f"| Cost | Editor cost per fixture run | {'n/a' if cost is None else f'${cost:.4f}'} |",
     ]
     return "\n".join(lines)

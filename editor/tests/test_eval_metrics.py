@@ -36,7 +36,7 @@ class FollowTests(unittest.TestCase):
 
 
 class ConflictMetricsTests(unittest.TestCase):
-    chains = [Chain(["v1", "v2", "v3"], older=["old-only"], newer=["implies-v3"])]
+    chains = (Chain(["v1", "v2", "v3"], older=["old-only"], newer=["implies-v3"]),)
 
     def test_edges_scored_against_chain_positions(self) -> None:
         edges = [

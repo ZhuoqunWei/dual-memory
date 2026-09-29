@@ -10,7 +10,14 @@ import unittest
 from editor.pipeline import run_pipeline
 from editor.rollback import RollbackRefused, rollback_run
 
-from .support import FakeEmbeddings, FakeLLM, editor_db, fingerprint, requires_neo4j, reset_and_load
+from .support import (
+    FakeEmbeddings,
+    FakeLLM,
+    editor_db,
+    fingerprint,
+    requires_neo4j,
+    reset_and_load,
+)
 
 
 @requires_neo4j

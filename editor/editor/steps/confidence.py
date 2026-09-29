@@ -9,7 +9,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from ..constants import CONFIDENCE_DECAY, CONFIDENCE_FLOOR, CONFIDENCE_MULTI_SESSION_BOOST
+from ..constants import (
+    CONFIDENCE_DECAY,
+    CONFIDENCE_FLOOR,
+    CONFIDENCE_MULTI_SESSION_BOOST,
+)
 
 if TYPE_CHECKING:
     from ..audit import AuditLog

@@ -48,7 +48,7 @@ def run_relationships(
     candidates: list[tuple[dict, dict]] = []
     seen_pairs: set[tuple[str, str]] = set()
 
-    for entity_name, memories in entity_groups.items():
+    for memories in entity_groups.values():
         if len(memories) > RELATIONSHIP_HUB_MENTIONS:
             continue
         group_with_batch = [m for m in memories if m["id"] in batch_ids]

@@ -4,9 +4,10 @@ node_modules/
 venv/
 .cache/
 
-# Environment
+# Environment (any .env variant, e.g. backups, except the examples)
 .env
-.env.local
+.env.*
+!.env.example
 
 # Neo4j data
 neo4j-data/

@@ -668,8 +668,10 @@ def _undo_query(op: dict) -> tuple[str, dict]:
             raise ValueError(f"bad label in undo op: {op}")
         clause, params = _assignments("r", op["props"])
         return (
-            f"MATCH (a:{start_label} {{id: $a}}), (b:{end_label} {{id: $b}}) "
-            f"CREATE (a)-[r:{op['type']}]->(b) {clause}",
+            (
+                f"MATCH (a:{start_label} {{id: $a}}), (b:{end_label} {{id: $b}}) "
+                f"CREATE (a)-[r:{op['type']}]->(b) {clause}"
+            ),
             {"a": start_id, "b": end_id, **params},
         )
     raise ValueError(f"unknown undo op: {op}")
