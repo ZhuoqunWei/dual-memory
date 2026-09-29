@@ -70,17 +70,16 @@ def request_options(model: str, effort: str) -> dict:
 
 
 def parse_json(text: str) -> dict | list:
-    """Parse a JSON reply, tolerating a surrounding markdown fence."""
+    """Parse a JSON reply, tolerating a surrounding markdown fence and prose
+    after the JSON value (models sometimes append an explanation)."""
     cleaned = text.strip()
     if cleaned.startswith("```"):
         # Remove opening fence (```json or ```)
         first_newline = cleaned.find("\n")
-        if first_newline != -1:
-            cleaned = cleaned[first_newline + 1 :]
-        else:
-            cleaned = cleaned[3:]
-    cleaned = cleaned.removesuffix("```")
-    return json.loads(cleaned.strip())
+        cleaned = cleaned[first_newline + 1 :] if first_newline != -1 else cleaned[3:]
+    cleaned = cleaned.removesuffix("```").strip()
+    value, _ = json.JSONDecoder().raw_decode(cleaned)
+    return value
 
 
 def verdicts_by_pair(reply: object, count: int, key: str = "pair") -> list[dict]:

@@ -21,6 +21,9 @@ type Message = {
   content: string | Array<{ type: string; text?: string }>;
 };
 
+/** Tokens one extraction call billed. */
+export type ExtractionUsage = { inputTokens: number; outputTokens: number };
+
 type LLMExtractionResult = {
   facts: Array<{
     content: string;
@@ -306,17 +309,23 @@ export class Writer {
   async extractFacts(
     messages: unknown[],
     channel: string = "cli",
-  ): Promise<{ facts: ExtractedFact[]; entityLinks: EntityLink[]; sessionSummary: string }> {
+  ): Promise<{
+    facts: ExtractedFact[];
+    entityLinks: EntityLink[];
+    sessionSummary: string;
+    usage: ExtractionUsage;
+  }> {
+    const usage: ExtractionUsage = { inputTokens: 0, outputTokens: 0 };
     // 1. Extract text from messages
     const transcript = this.buildTranscript(messages);
     if (!transcript || transcript.length < 20) {
-      return { facts: [], entityLinks: [], sessionSummary: "" };
+      return { facts: [], entityLinks: [], sessionSummary: "", usage };
     }
 
     // 2. Call LLM for extraction
-    const extraction = await this.callLLM(transcript);
+    const extraction = await this.callLLM(transcript, usage);
     if (!extraction || extraction.facts.length === 0) {
-      return { facts: [], entityLinks: [], sessionSummary: extraction?.sessionSummary ?? "" };
+      return { facts: [], entityLinks: [], sessionSummary: extraction?.sessionSummary ?? "", usage };
     }
 
     // 3. Convert to ExtractedFact format with Writer defaults
@@ -370,7 +379,7 @@ export class Writer {
       strength: Math.min(1, Math.max(0, l.strength ?? 0.5)),
     }));
 
-    return { facts: filteredFacts, entityLinks, sessionSummary: extraction.sessionSummary };
+    return { facts: filteredFacts, entityLinks, sessionSummary: extraction.sessionSummary, usage };
   }
 
   /**
@@ -421,7 +430,7 @@ export class Writer {
   /**
    * Call the LLM for fact extraction.
    */
-  private async callLLM(transcript: string): Promise<LLMExtractionResult | null> {
+  private async callLLM(transcript: string, usage: ExtractionUsage): Promise<LLMExtractionResult | null> {
     try {
       let content: string | null = null;
 
@@ -439,6 +448,8 @@ export class Writer {
           ],
         });
 
+        usage.inputTokens += response.usage.input_tokens;
+        usage.outputTokens += response.usage.output_tokens;
         const textBlock = response.content.find((b) => b.type === "text");
         content = textBlock && "text" in textBlock ? textBlock.text : null;
       } else if (this.openai) {
@@ -455,6 +466,8 @@ export class Writer {
           ],
         });
 
+        usage.inputTokens += response.usage?.prompt_tokens ?? 0;
+        usage.outputTokens += response.usage?.completion_tokens ?? 0;
         content = response.choices[0]?.message?.content ?? null;
       }
 

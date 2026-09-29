@@ -203,6 +203,16 @@ function writeKey(sessionId: string, content: string): string {
   return createHash("sha256").update(`${sessionId}\n${normalized}`).digest("hex");
 }
 
+/**
+ * An extracted event time Neo4j's datetime() accepts, or null. The LLM
+ * occasionally returns partial or relative dates ("--08-15", "last summer"),
+ * and one bad value would otherwise abort the whole session's write.
+ */
+function isoDateOrNull(value: string | null | undefined): string | null {
+  if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
+  return Number.isNaN(Date.parse(value)) ? null : value;
+}
+
 /** Cosine above which a same-session fact counts as a restatement. */
 export const WRITER_DEDUP_COSINE = 0.95;
 
@@ -412,8 +422,8 @@ export class Neo4jClient {
               kind: fact.kind,
               confidence: fact.confidence,
               salience: fact.salience,
-              eventTimeStart: fact.eventTimeStart ?? null,
-              eventTimeEnd: fact.eventTimeEnd ?? null,
+              eventTimeStart: isoDateOrNull(fact.eventTimeStart),
+              eventTimeEnd: isoDateOrNull(fact.eventTimeEnd),
               sourceRef: fact.sourceRef ?? null,
               sourceQuote: fact.sourceQuote ?? null,
               sourceChannel: fact.sourceChannel ?? null,

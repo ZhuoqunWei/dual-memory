@@ -54,3 +54,7 @@ neo4j_data/
 
 # Eval report written by CI
 eval/results/ci.json
+
+# LoCoMo: the dataset (not ours to redistribute) and everything derived from it
+eval/locomo/data/
+eval/locomo/cache/

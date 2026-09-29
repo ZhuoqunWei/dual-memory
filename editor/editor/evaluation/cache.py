@@ -11,6 +11,7 @@ import base64
 import hashlib
 import json
 import logging
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +50,7 @@ class RecordingCache:
         self.record = record
         self._entries: dict[str, dict] = {}
         self._used: list[str] = []
+        self._lock = threading.Lock()  # safe to share across threads
         if path.exists():
             for line in path.read_text().splitlines():
                 if line.strip():
@@ -56,17 +58,19 @@ class RecordingCache:
                     self._entries[entry["key"]] = entry
 
     def get(self, key: str) -> dict | None:
-        entry = self._entries.get(key)
-        if entry is not None and key not in self._used:
-            self._used.append(key)
-        return entry
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is not None and key not in self._used:
+                self._used.append(key)
+            return entry
 
     def put(self, entry: dict) -> None:
-        self._entries[entry["key"]] = entry
-        self._used.append(entry["key"])
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        with self.path.open("a") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        with self._lock:
+            self._entries[entry["key"]] = entry
+            self._used.append(entry["key"])
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
     def prune(self) -> int:
         """Rewrite the file with only the entries used this run. Returns removed count."""
