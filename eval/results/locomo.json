@@ -1,0 +1,157 @@
+{
+  "benchmark": "LoCoMo (locomo10), categories 1-4",
+  "conversations": 10,
+  "questions": 1540,
+  "writer_model": "claude-sonnet-5",
+  "editor_model": "claude-sonnet-5 (medium)",
+  "reader_model": "claude-sonnet-5 (low)",
+  "judge_model": "claude-haiku-4-5",
+  "scores": {
+    "overall": {
+      "n": 1540,
+      "judge_accuracy": 0.4104,
+      "f1": 0.3149,
+      "evidence_session_recall@8": 0.7879,
+      "no_context": 0.0
+    },
+    "by_category": {
+      "multi-hop": {
+        "n": 282,
+        "judge_accuracy": 0.3298,
+        "f1": 0.3185,
+        "evidence_session_recall@8": 0.8861,
+        "no_context": 0.0
+      },
+      "temporal": {
+        "n": 321,
+        "judge_accuracy": 0.081,
+        "f1": 0.0864,
+        "evidence_session_recall@8": 0.7695,
+        "no_context": 0.0
+      },
+      "open-domain": {
+        "n": 96,
+        "judge_accuracy": 0.3646,
+        "f1": 0.2173,
+        "evidence_session_recall@8": 0.6629,
+        "no_context": 0.0
+      },
+      "single-hop": {
+        "n": 841,
+        "judge_accuracy": 0.5684,
+        "f1": 0.4121,
+        "evidence_session_recall@8": 0.7753,
+        "no_context": 0.0
+      }
+    },
+    "by_conversation": {
+      "conv-26": 0.3487,
+      "conv-30": 0.284,
+      "conv-41": 0.4868,
+      "conv-42": 0.3769,
+      "conv-43": 0.3989,
+      "conv-44": 0.4553,
+      "conv-47": 0.46,
+      "conv-48": 0.4346,
+      "conv-49": 0.4295,
+      "conv-50": 0.3861
+    }
+  },
+  "memories": [
+    {
+      "sample_id": "conv-26",
+      "extracted": 123,
+      "written": 123,
+      "active_after_editor": 99
+    },
+    {
+      "sample_id": "conv-30",
+      "extracted": 104,
+      "written": 104,
+      "active_after_editor": 80
+    },
+    {
+      "sample_id": "conv-41",
+      "extracted": 182,
+      "written": 182,
+      "active_after_editor": 164
+    },
+    {
+      "sample_id": "conv-42",
+      "extracted": 171,
+      "written": 171,
+      "active_after_editor": 138
+    },
+    {
+      "sample_id": "conv-43",
+      "extracted": 171,
+      "written": 171,
+      "active_after_editor": 153
+    },
+    {
+      "sample_id": "conv-44",
+      "extracted": 161,
+      "written": 161,
+      "active_after_editor": 131
+    },
+    {
+      "sample_id": "conv-47",
+      "extracted": 184,
+      "written": 184,
+      "active_after_editor": 175
+    },
+    {
+      "sample_id": "conv-48",
+      "extracted": 175,
+      "written": 175,
+      "active_after_editor": 155
+    },
+    {
+      "sample_id": "conv-49",
+      "extracted": 141,
+      "written": 141,
+      "active_after_editor": 124
+    },
+    {
+      "sample_id": "conv-50",
+      "extracted": 170,
+      "written": 170,
+      "active_after_editor": 133
+    }
+  ],
+  "cost": {
+    "writer": {
+      "model": "claude-sonnet-5",
+      "calls": 272,
+      "input_tokens": 1269122,
+      "output_tokens": 368011,
+      "cost_usd": 6.2184
+    },
+    "editor": {
+      "step": "TOTAL",
+      "seconds": 3041.956264,
+      "llm_seconds": 7551.25,
+      "llm_calls": 977,
+      "input_tokens": 1203834,
+      "output_tokens": 594530,
+      "cost_usd": 8.352968,
+      "embed_calls": 29,
+      "embed_tokens": 3858
+    },
+    "reader": {
+      "model": "claude-sonnet-5",
+      "calls": 1540,
+      "input_tokens": 881566,
+      "output_tokens": 27017,
+      "cost_usd": 2.0333
+    },
+    "judge": {
+      "model": "claude-haiku-4-5",
+      "calls": 1540,
+      "input_tokens": 245694,
+      "output_tokens": 35033,
+      "cost_usd": 0.4209
+    }
+  },
+  "harness_seconds": 3665.5
+}

@@ -34,7 +34,11 @@ class EmbeddingUsage:
 
 class EmbeddingsClient:
     def __init__(self, api_key: str, model: str = "voyage-4-lite") -> None:
-        self._client = voyageai.Client(api_key=api_key) if api_key else None
+        # The SDK defaults to no retries and no timeout; a dropped connection
+        # would otherwise hang a nightly run for minutes and then fail it.
+        self._client = (
+            voyageai.Client(api_key=api_key, max_retries=3, timeout=60) if api_key else None
+        )
         self.model = model
         self.usage = EmbeddingUsage()
 

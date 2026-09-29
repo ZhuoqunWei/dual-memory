@@ -383,3 +383,17 @@ The medium run exposed one more chain: the LLM said "VS Code" = "nvim", the embe
 - Retrieval recall@5 on "what was it before?" questions is 29%: they lose to the superseded weight. Dedup still merges "accepted an offer" into "works there" at every setting tried.
 
 ---
+
+## 2026-09-29 — LoCoMo, and the live instance
+
+### External number
+LoCoMo through the shipped Writer → Editor → retrieval, fixed Sonnet 5 reader, Haiku 4.5 judge: **41.0%** of 1,540 questions (single-hop 56.8%, multi-hop 33.0%, open-domain 36.5%, temporal 8.1%), $17.03. The synthetic fixture said 86% recall@5; the review predicted the drop. Retrieval isn't the main loss (a memory from an evidence session is recalled 79% of the time); extraction is. The Writer keeps ~6 facts per 22-turn session and has no idea what day it is, so "when" questions get "last Saturday".
+
+### Bugs the benchmark found
+- An LLM-extracted `eventTimeStart` of `"--08-15"` made `datetime()` throw and aborted the session's whole write. `writeFacts` now keeps only full ISO dates.
+- Judge replies with prose after the JSON broke `parse_json`; it now takes the first JSON value (no eval-harness recording changes).
+- The Voyage client defaulted to no retries and no timeout; one dropped connection hung the run 10 minutes then failed it. Now 3 retries, 60 s.
+
+### Why the live Writer had saved nothing since May 21
+Four stacked causes: the gateway's launchd service has none of the API keys (they live in `~/.zshrc`), so the plugin failed to register on every service start, with stderr going to `/dev/null`; OpenClaw 2026.5.20 blocks non-bundled plugins' conversation hooks without `hooks.allowConversationAccess`; the Writer dropped every user turn that carried injected recall context; and the Codex plugin auto-updated past core (2026.5.22 vs 2026.5.20), crashing every agent run, then `gpt-5.4` stopped being served to ChatGPT accounts. Pinned the plugin, moved Zku to `gpt-5.5`, granted the hook permissions, fixed the transcript, enforced JSON extraction with structured outputs, and made config errors log through the plugin logger.
+

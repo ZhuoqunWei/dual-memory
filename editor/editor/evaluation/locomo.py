@@ -22,7 +22,8 @@ Needs ANTHROPIC_API_KEY and VOYAGE_API_KEY, the scratch Neo4j, and
 eval/locomo/data/locomo10.json (github.com/snap-research/locomo). Every API
 call is recorded under eval/locomo/cache, so an interrupted run resumes where
 it stopped. The dataset and everything derived from it stay out of git; only
-the summary (eval/results/locomo.json) is committed.
+the summary (eval/results/locomo.json) is committed; failure examples go to
+eval/locomo/cache/failure_examples.json.
 """
 
 from __future__ import annotations
@@ -96,6 +97,9 @@ def main() -> None:
 
     conversations = json.loads(DATA.read_text())[: args.limit]
     report = run(conversations, anthropic_key, voyage_key, args.workers)
+    # Failure examples quote the dataset, which stays out of git with it.
+    examples = report.pop("examples")
+    (CACHE / "failure_examples.json").write_text(json.dumps(examples, indent=2, ensure_ascii=False) + "\n")
     with open(args.out, "w") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
         f.write("\n")

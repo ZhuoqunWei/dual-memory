@@ -76,6 +76,8 @@ Each column is one change, measured on the same fixture (Editor on Claude Sonnet
 
 The Haiku 4.5 column runs the 07 code: cheapest, but it marks 23% of current facts as outdated.
 
+**External check: LoCoMo.** On the public [LoCoMo](https://github.com/snap-research/locomo) benchmark (10 long conversations, 1,540 questions), run through the same shipped code, the system answers **41.0%** correctly (LLM judge; single-hop 56.8%, multi-hop 33.0%, open-domain 36.5%, temporal 8.1%). Retrieval surfaces a memory from the right session for 79% of questions; what's missing is the detail, because the Writer keeps a few durable facts per conversation and never sees dates. Details in [eval/README.md](eval/README.md#external-benchmark-locomo).
+
 Caveats: one fixture, and the thresholds were tuned while looking at it; three gold labels were corrected after seeing results; every number is a single LLM sample (contradiction precision moved 85% → 77% between 04 and 05 on variance alone). Retrieval recall is lowest on "what was it before?" questions (29%), which the superseded penalty trades away.
 
 ## Repository Layout
@@ -211,7 +213,8 @@ Implemented:
 
 Next improvements:
 
-- A held-out fixture and a public long-term-memory benchmark (LongMemEval, LoCoMo)
+- Give the Writer the session date and show memory dates in recalled context (LoCoMo temporal: 8.1%)
+- Denser extraction as an option, measured on LoCoMo against its cost
 - History-aware retrieval for "what was it before?" questions
 - Keep implied facts apart in dedup ("accepted an offer" vs "works there")
 - Add category-aware retrieval routing

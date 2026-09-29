@@ -75,6 +75,52 @@ the Writer's LLM extraction, so extraction quality is not measured here.
 
 The loader validates references, so a typo in a cluster name fails loudly.
 
+## External benchmark: LoCoMo
+
+The fixture above was written by the same person who tuned the thresholds, so
+it can't be the only number. `python -m editor.evaluation.locomo` runs
+[LoCoMo](https://github.com/snap-research/locomo) (10 conversations between
+two people, 272 dated sessions, 5,882 turns) through the shipped code:
+
+1. each session goes through the Writer's real LLM extraction (Sonnet 5) and
+   `writeFacts`, stamped with the session date;
+2. the Editor runs over each conversation's graph (Sonnet 5, medium effort);
+3. each question goes through `Retrieval.retrieveContext()`, i.e. the exact
+   `<graph-memories>` block the plugin injects (8 memories);
+4. a fixed reader (Sonnet 5, low effort) answers from that block alone, and a
+   judge (Haiku 4.5) marks it CORRECT or WRONG against the gold answer.
+
+Category 5 (adversarial, wrong-premise questions) is excluded, as in prior
+LoCoMo evaluations. Result (`results/locomo.json`), one run, $17.03 in API calls:
+
+| Category | Questions | Judge accuracy | Token F1 | Evidence session among recalled memories |
+|---|---|---|---|---|
+| single-hop | 841 | 56.8% | 0.412 | 77.5% |
+| multi-hop | 282 | 33.0% | 0.319 | 88.6% |
+| open-domain | 96 | 36.5% | 0.217 | 66.3% |
+| temporal | 321 | 8.1% | 0.086 | 77.0% |
+| **overall** | **1,540** | **41.0%** | **0.315** | **78.8%** |
+
+What it says about the system, not the benchmark:
+
+- **Extraction is the bottleneck, not retrieval.** For 79% of questions a
+  recalled memory came from a session holding the evidence, but the specific
+  detail was never written: the Writer targets 3-6 durable facts per
+  conversation (about 6 per 22-turn session here), which suits an assistant's
+  long-term memory and loses LoCoMo's conversational detail.
+- **Temporal questions fail because the Writer never sees a date.** Facts say
+  "last Saturday" or nothing; 9 of 1,582 extracted facts carried an event date.
+  Passing the session date into extraction and showing memory dates in the
+  injected context is the obvious fix and would need its own measured run.
+- It found two more bugs: a partial date from the LLM ("--08-15") aborted a
+  whole session's write, and judge replies with prose after the JSON crashed
+  parsing. Both are fixed.
+
+Numbers aren't comparable across papers unless the reader and judge match;
+this is a like-for-like baseline for later changes to this system. The
+dataset, recordings, and failure examples stay local (`eval/locomo/`,
+gitignored).
+
 ## Label corrections
 
 Gold labels changed after results were seen. Each fixes a labelling gap under
